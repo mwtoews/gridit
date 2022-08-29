@@ -4,6 +4,7 @@ type: software
 title: "Gridit"
 version: "0.1"
 date-released: "2022-08-29"
+doi: 10.5281/zenodo.7030428
 abstract: "Gridit provides spatial tools to translate raster or vector polygon data to regular grids."
 repository-artifact: https://pypi.org/project/gridit
 repository-code: https://github.com/mwtoews/gridit

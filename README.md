@@ -1,6 +1,7 @@
 # Gridit
 
 [![Tests](https://github.com/mwtoews/gridit/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mwtoews/gridit/actions/workflows/tests.yml)
+[![DOI](https://zenodo.org/badge/530041277.svg)](https://zenodo.org/badge/latestdoi/530041277)
 
 ## Description
 
