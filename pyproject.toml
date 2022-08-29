@@ -1,5 +1,8 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = [
+    "setuptools>=45",
+    "setuptools_scm[toml]>=6.2",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -41,16 +44,19 @@ test = [
 [project.scripts]
 gridit = "gridit.__main__:cli_main"
 
+[project.urls]
+Repository = "https://github.com/mwtoews/gridit"
+
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
 ]
-
-[tool.setuptools.dynamic]
-version = {attr = "gridit.__version__"}
 
 [tool.setuptools.packages.find]
 include = [
     "gridit",
     "gridit.*",
 ]
+
+[tool.setuptools_scm]
+write_to = "gridit/_version.py"
