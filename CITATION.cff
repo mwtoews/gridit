@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "Please cite this software using these metadata."
+type: software
+title: "Gridit"
+version: "0.1"
+date-released: "2022-08-29"
+abstract: "Gridit provides spatial tools to translate raster or vector polygon data to regular grids."
+repository-artifact: https://pypi.org/project/gridit
+repository-code: https://github.com/mwtoews/gridit
+license: "BSD-3-Clause"
+authors:
+  - given-names: "Mike W."
+    family-names: Taves
+    email: mwtoews@gmail.com
+    affiliation: "GNS Science"
+    orcid: "https://orcid.org/0000-0003-3657-7963"

@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gridit"
+dynamic = ["version"]
+authors = [
+    {name = "Mike Taves", email = "mwtoews@gmail.com"},
+]
+description = "Spatial tools to translate raster or vector polygon data to regular grids"
+readme = "README.md"
+keywords = ["rasterize", "grid", "regular grid"]
+license = {text = "BSD 3-Clause"}
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: GIS",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+]
+
+[project.optional-dependencies]
+optional = [
+    "fiona",
+    "matplotlib",
+    "netCDF4",
+    "rasterio",
+    "scipy",
+    "shapely",
+    "xarray",
+]
+test = [
+    "pytest",
+    "pytest-xdist",
+]
+
+[project.scripts]
+gridit = "gridit.__main__:cli_main"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "gridit.__version__"}
+
+[tool.setuptools.packages.find]
+include = [
+    "gridit",
+    "gridit.*",
+]
