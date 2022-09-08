@@ -496,10 +496,11 @@ class Grid:
                     nodata = vals.max() * 10.0
                     resampling = Resampling.average
                 elif vdtype.startswith("int"):
-                    if vals.min() > 0:
+                    if vals[(vals != None)].min() > 0:
                         nodata = 0
                     else:
-                        nodata = vals.max() + 1
+                        nodata = vals[(vals != None)].max() + 1
+                    vals[(vals == None)] = nodata
                     resampling = Resampling.mode
                 else:
                     raise ValueError(
