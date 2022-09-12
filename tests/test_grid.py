@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pytest
 
@@ -187,9 +188,98 @@ def test_grid_from_vector_layer():
     assert grid == expected
 
 
-@requires_pkg("fiona", "rasterio")
-def test_array_from_raster_all(grid_from_vector_all):
-    ar = grid_from_vector_all.array_from_raster(mana_dem_path)
+@requires_pkg("rasterio")
+def test_array_from_array(caplog):
+    coarse_grid = Grid(8, (3, 4))
+    fine_grid = Grid(4, (6, 8))
+    # same resolution
+    in_ar = np.arange(12).reshape((3, 4))
+    with caplog.at_level(logging.INFO):
+        out_ar = coarse_grid.array_from_array(coarse_grid, in_ar)
+        assert "nearest resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(out_ar, in_ar)
+    # fine to coarse
+    in_ar = np.arange(12).reshape((3, 4))
+    with caplog.at_level(logging.INFO):
+        out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
+        assert "nearest resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(
+        out_ar,
+        np.ma.array([
+            [0, 0, 1, 1, 2, 2, 3, 3],
+            [0, 0, 1, 1, 2, 2, 3, 3],
+            [4, 4, 5, 5, 6, 6, 7, 7],
+            [4, 4, 5, 5, 6, 6, 7, 7],
+            [8, 8, 9, 9, 10, 10, 11, 11],
+            [8, 8, 9, 9, 10, 10, 11, 11]]))
+    with caplog.at_level(logging.INFO):
+        out_ar = fine_grid.array_from_array(coarse_grid, in_ar.astype(float))
+        assert "bilinear resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(
+        out_ar,
+        np.ma.array([
+            [0.0, 0.25, 0.75, 1.25, 1.75, 2.25, 2.75, 3.0],
+            [1.0, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75, 4.0],
+            [3.0, 3.25, 3.75, 4.25, 4.75, 5.25, 5.75, 6.0],
+            [5.0, 5.25, 5.75, 6.25, 6.75, 7.25, 7.75, 8.0],
+            [7.0, 7.25, 7.75, 8.25, 8.75, 9.25, 9.75, 10.0],
+            [8.0, 8.25, 8.75, 9.25, 9.75, 10.25, 10.75, 11.0]]))
+    # coarse to fine
+    in_ar = np.arange(48).reshape((6, 8))
+    with caplog.at_level(logging.INFO):
+        out_ar = coarse_grid.array_from_array(fine_grid, in_ar)
+        assert "mode resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(
+        out_ar,
+        np.ma.array([
+            [0, 2, 4, 6],
+            [16, 18, 20, 22],
+            [32, 34, 36, 38]]))
+    with caplog.at_level(logging.INFO):
+        out_ar = coarse_grid.array_from_array(fine_grid, in_ar.astype(float))
+        assert "average resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(
+        out_ar,
+        np.ma.array([
+            [4.5, 6.5, 8.5, 10.5],
+            [20.5, 22.5, 24.5, 26.5],
+            [36.5, 38.5, 40.5, 42.5]]))
+    # 3D fine to coarse
+    R, C = np.mgrid[0:3, 0:4]
+    in_ar = np.stack([R, C])
+    with caplog.at_level(logging.INFO):
+        out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
+        assert "nearest resampling" in caplog.messages[-1]
+    np.testing.assert_array_equal(
+        out_ar,
+        np.ma.array([
+            [[0, 0, 0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 0, 0, 0, 0],
+             [1, 1, 1, 1, 1, 1, 1, 1],
+             [1, 1, 1, 1, 1, 1, 1, 1],
+             [2, 2, 2, 2, 2, 2, 2, 2],
+             [2, 2, 2, 2, 2, 2, 2, 2]],
+            [[0, 0, 1, 1, 2, 2, 3, 3],
+             [0, 0, 1, 1, 2, 2, 3, 3],
+             [0, 0, 1, 1, 2, 2, 3, 3],
+             [0, 0, 1, 1, 2, 2, 3, 3],
+             [0, 0, 1, 1, 2, 2, 3, 3],
+             [0, 0, 1, 1, 2, 2, 3, 3]]]))
+    # errors
+    with pytest.raises(TypeError, match="expected grid to be a Grid"):
+        fine_grid.array_from_array(1, in_ar)
+    with pytest.raises(TypeError, match="expected array to be array_like"):
+        fine_grid.array_from_array(coarse_grid, 1)
+    with pytest.raises(ValueError, match="array has different shape than gri"):
+        fine_grid.array_from_array(coarse_grid, np.ones((2, 3)))
+    with pytest.raises(ValueError, match="array has different shape than gri"):
+        fine_grid.array_from_array(coarse_grid, np.ones((4, 2, 3)))
+
+
+@requires_pkg("rasterio")
+def test_array_from_raster_all():
+    grid = Grid(100, (24, 18), (1748600.0, 5451200.0))
+    ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (24, 18)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
@@ -204,9 +294,10 @@ def test_array_from_raster_all(grid_from_vector_all):
         assert mask_sum is False
 
 
-@requires_pkg("fiona", "rasterio")
-def test_array_from_raster_filter(grid_from_vector_filter):
-    ar = grid_from_vector_filter.array_from_raster(mana_dem_path)
+@requires_pkg("rasterio")
+def test_array_from_raster_filter():
+    grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
+    ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
@@ -221,9 +312,10 @@ def test_array_from_raster_filter(grid_from_vector_filter):
         assert mask_sum is False
 
 
-@requires_pkg("fiona", "rasterio")
-def test_array_from_raster_filter_nan(grid_from_vector_filter):
-    ar = grid_from_vector_filter.array_from_raster(mana_hk_nan_path)
+@requires_pkg("rasterio")
+def test_array_from_raster_filter_nan():
+    grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
+    ar = grid.array_from_raster(mana_hk_nan_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     assert ar.mask.sum() == 32
@@ -257,10 +349,10 @@ def test_array_from_raster_same_grid_nan(grid_from_raster):
     np.testing.assert_equal(ar, expected)
 
 
-@requires_pkg("fiona", "rasterio")
+@requires_pkg("rasterio")
 def test_array_from_raster_refine():
     # use bilinear resampling method
-    grid = Grid.from_vector(mana_polygons_path, 5, {"name": "South-east"})
+    grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"
@@ -269,10 +361,10 @@ def test_array_from_raster_refine():
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
 
 
-@requires_pkg("fiona", "rasterio")
+@requires_pkg("rasterio")
 def test_array_from_raster_refine_nan():
     # use bilinear resampling method
-    grid = Grid.from_vector(mana_polygons_path, 5, {"name": "South-east"})
+    grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
     ar = grid.array_from_raster(mana_hk_nan_path)
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"

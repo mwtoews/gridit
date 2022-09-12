@@ -269,6 +269,117 @@ class Grid:
         return cls(resolution=resolution, shape=shape, top_left=top_left,
                    projection=projection, logger=logger)
 
+    def array_from_array(self, grid, array, resampling=None):
+        """Return array from a different grid and array.
+
+        Parameters
+        ----------
+        grid : Grid
+            Grid for array input.
+        array : array_like
+            Array data to regrid. If 3D, the first dimension is the band.
+        resampling : rasterio.enums.Resampling, optional
+            Choose one from rasterio.enums.Resampling; default (None)
+            automatically selects the best method based on the relative grid
+            resolutions and data type.
+
+        Returns
+        -------
+        np.ma.array
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If rasterio is not installed.
+        """
+        try:
+            import rasterio
+            from rasterio.enums import Resampling
+            from rasterio.warp import reproject
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError("array_from_array requires rasterio")
+        if not isinstance(grid, Grid):
+            raise TypeError(
+                f"expected grid to be a Grid; found {type(grid)!r}")
+        elif not (hasattr(array, "ndim") and hasattr(array, "shape")):
+            raise TypeError(
+                f"expected array to be array_like; found {type(array)!r}")
+        elif not (array.ndim in (2, 3) and array.shape[-2:] == grid.shape):
+            raise ValueError("array has different shape than grid")
+
+        rel_res_diff = abs(
+            (grid.resolution - self.resolution) / self.resolution) * 100
+        if rel_res_diff == 0.0:
+            self.logger.info(
+                "source and destination have the same resolution %s",
+                self.resolution)
+        else:
+            self.logger.info(
+                "source resolution %s vs destination resolution "
+                "%s, which is a relative difference of %s%%",
+                grid.resolution, self.resolution, rel_res_diff)
+        if resampling is None:
+            is_floating = np.issubdtype(array.dtype, np.floating)
+            if rel_res_diff <= 10.0:
+                resampling = Resampling.nearest
+            elif grid.resolution > self.resolution:
+                if is_floating:
+                    resampling = Resampling.bilinear
+                else:
+                    resampling = Resampling.nearest
+            elif grid.resolution < self.resolution:
+                if is_floating:
+                    resampling = Resampling.average
+                else:
+                    resampling = Resampling.mode
+            else:
+                raise ValueError()
+        self.logger.info("using %s resampling method", resampling)
+        if not rasterio.dtypes.check_dtype(array.dtype):
+            dtype = rasterio.dtypes.get_minimum_dtype(array)
+            self.logger.debug(
+                "changing array dtype from '%s' to '%s'",
+                array.dtype, dtype)
+            array = array.astype(dtype)
+        kwds = {}
+        nodata = None
+        if np.ma.isMA(array):
+            if array.dtype == np.float32:
+                fill_value = array.fill_value
+                if not float32_is_also_float64(fill_value):
+                    # TODO: any better way to find fill_value?
+                    fill_value = 3.28e9
+                    assert float32_is_also_float64(fill_value)
+                    assert fill_value not in array
+                    array = array.copy()
+                    array.fill_value = fill_value
+            kwds["src_nodata"] = nodata = array.fill_value
+            array = array.filled()
+        src_crs = self.projection
+        dst_crs = grid.projection
+        if not src_crs and not dst_crs:
+            # TODO: is there a better catch-all projection?
+            src_crs = "EPSG:3857"
+            dst_crs = "EPSG:3857"
+        elif not src_crs:
+            src_crs = dst_crs
+        elif not dst_crs:
+            dst_crs = src_crs
+        if array.ndim == 3:
+            dst_shape = array.shape[0:1] + self.shape
+        else:
+            dst_shape = self.shape
+        dst_array = np.ma.empty(dst_shape, array.dtype)
+        dst_array.mask = False
+        _ = reproject(
+            array, dst_array.data,
+            src_transform=grid.transform, dst_transform=self.transform,
+            src_crs=src_crs, dst_crs=dst_crs,
+            resampling=resampling, **kwds)
+        if nodata is not None:
+            dst_array.mask = dst_array.data == nodata
+        return dst_array
+
     def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         """Return array from a raster source aligned to grid info.
 
@@ -312,7 +423,6 @@ class Grid:
 
             band = rasterio.band(ds, bidx)
             ar = np.ma.zeros(self.shape, band.dtype)
-            is_floating = np.issubdtype(ar.dtype, np.floating)
             ds_mean_res = np.mean(ds.res)
             rel_res_diff = abs(
                 (ds_mean_res - self.resolution) / self.resolution) * 100
@@ -326,6 +436,7 @@ class Grid:
                     "%s, which is a relative difference of %s%%",
                     ds_mean_res, self.resolution, rel_res_diff)
             if resampling is None:
+                is_floating = np.issubdtype(ar.dtype, np.floating)
                 if rel_res_diff <= 10.0:
                     resampling = Resampling.nearest
                 elif ds_mean_res > self.resolution:
