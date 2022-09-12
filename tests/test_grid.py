@@ -333,6 +333,43 @@ def test_array_from_vector_layer(grid_from_vector_all):
     assert len(np.unique(ar)) == 5
 
 
+@requires_pkg("fiona", "rasterio")
+def test_array_from_vector_layer_intnull(grid_from_vector_all):
+    ar = grid_from_vector_all.array_from_vector(
+        datadir, "intnull", layer="mana_polygons")
+    assert ar.shape == (24, 18)
+    assert ar.fill_value == 0
+    assert np.issubdtype(ar.dtype, np.integer)
+    assert ar.mask.sum() == 228
+    assert ar.min() == 4
+    assert ar.max() == 51
+    assert ar.sum() == 3487
+
+
+@requires_pkg("fiona", "rasterio")
+def test_array_from_vector_layer_floatnull(grid_from_vector_all):
+    ar = grid_from_vector_all.array_from_vector(
+        datadir, "floatnull", layer="mana_polygons")
+    assert ar.shape == (24, 18)
+    assert ar.fill_value == 0.0
+    assert np.issubdtype(ar.dtype, np.floating)
+    assert ar.mask.sum() == 228
+    np.testing.assert_almost_equal(ar.min(), 0.002)
+    np.testing.assert_almost_equal(ar.max(), 2452.0)
+    np.testing.assert_almost_equal(ar.sum(), 126963.862)
+
+
+@requires_pkg("fiona", "rasterio")
+def test_array_from_vector_layer_allnull(grid_from_vector_all):
+    ar = grid_from_vector_all.array_from_vector(
+        datadir, "allnull", layer="mana_polygons")
+    assert ar.shape == (24, 18)
+    assert ar.fill_value == 0
+    assert np.issubdtype(ar.dtype, np.integer)
+    assert ar.mask.all()
+    assert ar.data.min() == ar.data.max()
+
+
 @requires_pkg("rasterio")
 def test_array_from_raster_no_projection():
     grid = Grid.from_bbox(

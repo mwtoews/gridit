@@ -415,6 +415,7 @@ class Grid:
             from rasterio.dtypes import get_minimum_dtype
             from rasterio.enums import Resampling
             from rasterio.warp import reproject
+            from shapely.geometry import shape
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "array_from_vector requires fiona and rasterio")
@@ -447,7 +448,7 @@ class Grid:
             else:
                 do_transform = True
                 from fiona.transform import transform_geom
-                from shapely.geometry import box, mapping, shape
+                from shapely.geometry import box, mapping
                 self.logger.info(
                     "geometries will be transformed from %s to %s",
                     shorten(ds_crs, 60), shorten(grid_crs, 60))
@@ -464,6 +465,7 @@ class Grid:
                 if attribute not in attributes:
                     raise KeyError(
                         f"could not find {attribute} in {attributes}")
+                vdtype = ds.schema["properties"][attribute]
             if do_transform:
                 grid_box = box(*grid_bounds)
                 # TODO: does this make sense?
@@ -475,39 +477,58 @@ class Grid:
                 self.logger.info(
                     "transforming features in bbox %s", grid_box_t.bounds)
                 for _, feat in ds.items(**kwargs):
-                    geom = transform_geom(ds_crs, grid_crs, feat["geometry"])
-                    if not grid_box.intersects(shape(geom)):
-                        continue
                     if attribute is not None:
                         val = feat["properties"][attribute]
+                        if val is None:
+                            continue
+                    geom = transform_geom(ds_crs, grid_crs, feat["geometry"])
+                    geom_obj = shape(geom)
+                    if geom_obj.is_empty or not grid_box.intersects(geom_obj):
+                        continue
+                    if attribute is not None:
                         vals.append(val)
                     geom_vals.append((geom, val))
             else:
                 for _, feat in ds.items(bbox=grid_bounds):
-                    geom = feat["geometry"]
                     if attribute is not None:
                         val = feat["properties"][attribute]
+                        if val is None:
+                            continue
+                    geom = feat["geometry"]
+                    if shape(geom).is_empty:
+                        continue
+                    if attribute is not None:
                         vals.append(val)
                     geom_vals.append((geom, val))
-            if attribute is not None:
-                vals = np.array(vals)
-                vdtype = ds.schema["properties"][attribute]
-                if vdtype.startswith("float"):
-                    nodata = vals.max() * 10.0
-                    resampling = Resampling.average
-                elif vdtype.startswith("int"):
-                    if vals[(vals != None)].min() > 0:
-                        nodata = 0
-                    else:
-                        nodata = vals[(vals != None)].max() + 1
-                    vals[(vals == None)] = nodata
-                    resampling = Resampling.mode
+
+        if len(geom_vals) == 0:
+            self.logger.warning("no valid geometry objects found")
+            nodata = 0
+            if attribute is not None and vdtype.startswith("float"):
+                nodata = 0.0
+            dtype = get_minimum_dtype(nodata)
+            ar = np.ma.zeros(self.shape, dtype=dtype)
+            ar.mask = True
+            ar.fill_value = fill
+            return ar
+
+        if attribute is not None:
+            vals = np.array(vals)
+            if vdtype.startswith("float"):
+                nodata = vals.max() * 10.0
+                resampling = Resampling.average
+            elif vdtype.startswith("int"):
+                if vals.min() > 0:
+                    nodata = 0
                 else:
-                    raise ValueError(
-                        f"attribute {attribute} is neither float or int")
-                dtype = get_minimum_dtype(np.append(vals, nodata))
-                if dtype == "float32":
-                    dtype = "float64"
+                    nodata = vals.max() + 1
+                resampling = Resampling.mode
+            else:
+                raise ValueError(
+                    f"attribute {attribute} is neither float or int")
+            dtype = get_minimum_dtype(np.append(vals, nodata))
+            if dtype == "float32":
+                dtype = "float64"
         dtype_conv = np.dtype(dtype).type
         nodata = dtype_conv(nodata)
         fill = dtype_conv(fill)
