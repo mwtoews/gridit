@@ -1,0 +1,14 @@
+BEGIN Options
+  LIST       h6.lst
+  NEWTON
+END Options
+
+BEGIN Packages
+  DIS6       h6.dis
+  IC6        h6.ic
+  NPF6       h6.npf
+  OC6        h6.oc
+  RCH6       h6.rch
+  DRN6       h6.drn
+END Packages
+

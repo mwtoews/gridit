@@ -1,0 +1,9 @@
+BEGIN Options
+END Options
+
+BEGIN GRIDDATA
+  STRT LAYERED
+    OPEN/CLOSE h.top.ref
+    OPEN/CLOSE h.top.ref
+    OPEN/CLOSE h.top.ref
+END GRIDDATA
