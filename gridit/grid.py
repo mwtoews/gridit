@@ -830,7 +830,7 @@ class Grid:
         mask_cache[mask_cache_key] = mask
         return mask
 
-    def write_raster(self, array, fname: str, driver: str = "GTiff"):
+    def write_raster(self, array, fname: str, driver=None):
         """Write array to a raster file format.
 
         Parameters
@@ -839,8 +839,8 @@ class Grid:
             Array to write; must have 2-dimensions that match shape.
         fname : str
             Output file to write.
-        driver : str, optional
-            Raster driver. Default is "GTiff" for GeoTIFF.
+        driver : str or None (default)
+            Raster driver. Default None will determine driver from fname.
 
         Raises
         ------
@@ -856,6 +856,9 @@ class Grid:
         elif array.shape != self.shape:
             raise ValueError("array must have same shape " + str(self.shape))
         self.logger.info("writing raster file: %s", fname)
+        if driver is None:
+            from rasterio.drivers import driver_from_extension
+            driver = driver_from_extension(fname)
         kwds = {
             "driver": driver,
             "width": self.shape[1],
