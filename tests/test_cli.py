@@ -4,9 +4,9 @@ from .conftest import datadir, requires_pkg, run_cli, set_env
 
 
 module_name = "gridit"
-print(f"{module_name=}")
 mana_tif = datadir / "Mana.tif"
 mana_shp = datadir / "Mana_polygons.shp"
+modflow_dir = datadir / "modflow"
 waitaku2_nc = datadir / "waitaku2.nc"
 waitaku2_shp = datadir / "waitaku2.shp"
 
@@ -78,6 +78,31 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
     ])
     with set_env(GRID_CACHE_DIR=str(tmp_path)):
         stdout, stderr, returncode = run_cli(args)
+    assert len(stderr) == 0
+    assert len(stdout) > 0
+    assert returncode == 0
+
+
+@requires_pkg("flopy")
+def test_grid_from_modflow_classic(grid_from_bbox_args):
+    stdout, stderr, returncode = run_cli([
+        module_name,
+        "--grid-from-modflow", modflow_dir / "h.nam",
+    ])
+    assert len(stderr) == 0
+    assert len(stdout) > 0
+    assert returncode == 0
+
+
+@requires_pkg("fiona", "flopy")
+def test_grid_from_modflow_array_from_vector_attribute(grid_from_bbox_args):
+    stdout, stderr, returncode = run_cli([
+        module_name,
+        "--grid-from-modflow", modflow_dir / "mfsim.nam",
+        "--model-name", "h6",
+        "--array-from-vector", waitaku2_shp,
+        "--array-from-vector-attribute", "rid",
+    ])
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0

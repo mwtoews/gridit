@@ -29,6 +29,7 @@ dependencies = [
 [project.optional-dependencies]
 optional = [
     "fiona",
+    "flopy",
     "matplotlib",
     "netCDF4",
     "rasterio",

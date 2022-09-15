@@ -1,0 +1,28 @@
+BEGIN Options
+  LENGTH_UNITS  METERS
+  XORIGIN 1802000.0
+  YORIGIN 5861000.0
+END Options
+
+BEGIN Dimensions
+  NLAY  3
+  NROW  18
+  NCOL  17
+END Dimensions
+
+BEGIN GRIDDATA
+  DELR
+    CONSTANT 1000.0
+  DELC
+    CONSTANT 1000.0
+  TOP LAYERED
+    OPEN/CLOSE h.top.ref
+  BOTM LAYERED
+    OPEN/CLOSE h.botm1.ref
+    OPEN/CLOSE h.botm2.ref
+    OPEN/CLOSE h.botm2.ref
+  IDOMAIN LAYERED
+    OPEN/CLOSE h.ibound1.inf
+    OPEN/CLOSE h.ibound2.inf
+    OPEN/CLOSE h.ibound3.inf
+END GRIDDATA

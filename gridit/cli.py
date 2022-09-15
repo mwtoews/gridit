@@ -2,7 +2,11 @@
 
 __all__ = []
 
+from importlib.util import find_spec
+
 from .grid import Grid
+
+has_flopy = find_spec("flopy") is not None
 
 
 def add_grid_parser_arguments(parser):
@@ -32,6 +36,15 @@ def add_grid_parser_arguments(parser):
     grid_group.add_argument(
         "--buffer", metavar="BUF", type=float, default=0.0,
         help="Add buffer to extents of grid, default 0.")
+    if has_flopy:
+        grid_group.add_argument(
+            "--grid-from-modflow", metavar="PATH",
+            help="Use a MODFLOW grid, specified as a path to a mfsim.nam "
+            "file or directory, or a 'classic' MODFLOW NAM file. The model "
+            "must have constant row and column spacing.")
+        grid_group.add_argument(
+            "--model-name", metavar="NAM",
+            help="Needed if MODFLOW 6 simulation has more than one model")
     grid_group.add_argument(
         "--projection", metavar="STR", default="",
         help="Projection or coordinate reference system for --grid-from-bbox. "
@@ -67,7 +80,10 @@ def process_grid_options(args, logger):
         grid_args["buffer"] = args.buffer
     if args.projection:
         grid_args["projection"] = args.projection
-    from_grid_args = ["--grid-from-" + x for x in ["bbox", "raster", "vector"]]
+    from_grid_methods = ["bbox", "raster", "vector"]
+    if has_flopy:
+        from_grid_methods.append("modflow")
+    from_grid_args = ["--grid-from-" + x for x in from_grid_methods]
     from_grid_count = sum(
         getattr(args, x.lstrip("-").replace("-", "_")) is not None
         for x in from_grid_args)
@@ -117,6 +133,16 @@ def process_grid_options(args, logger):
                 error_msg(
                     f"cannot read from vector: {err}", "grid_from_vector"))
         mask = grid.mask_from_vector(fname, layer=layer)
+    elif has_flopy and args.grid_from_modflow is not None:
+        if args.projection == "":
+            projection = None
+        else:
+            projection = args.projection
+        grid = Grid.from_modflow(
+            args.grid_from_modflow, model_name=args.model_name,
+            projection=projection)
+        mask = grid.mask_from_modflow(
+            args.grid_from_modflow, model_name=args.model_name)
     else:
         raise NotImplementedError("whoops")
     return grid, mask
