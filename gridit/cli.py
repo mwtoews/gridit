@@ -30,21 +30,21 @@ def add_grid_parser_arguments(parser):
     grid_group.add_argument(
         "--grid-from-raster", metavar="FILE",
         help="Use grid definition from a raster file, e.g. DTM")
+    if has_flopy:
+        grid_group.add_argument(
+            "--grid-from-modflow", metavar="PATH[:MODEL]",
+            help="Use a MODFLOW grid, which must have constant row and column "
+            "spacing. For 'classic' MODFLOW, this is a path to a NAM file. "
+            "For MODFLOW 6, this is a path to a mfsim.nam file or directory, "
+            "and model name specified after ':', "
+            "e.g. 'mfsim.nam:name_of_model'. If a model name is not "
+            "specified, the first will be selected with a warning.")
     grid_group.add_argument(
         "--resolution", metavar="RES", type=float,
         help="Grid resolution along X and Y directions, e.g. 100 m")
     grid_group.add_argument(
         "--buffer", metavar="BUF", type=float, default=0.0,
         help="Add buffer to extents of grid, default 0.")
-    if has_flopy:
-        grid_group.add_argument(
-            "--grid-from-modflow", metavar="PATH",
-            help="Use a MODFLOW grid, specified as a path to a mfsim.nam "
-            "file or directory, or a 'classic' MODFLOW NAM file. The model "
-            "must have constant row and column spacing.")
-        grid_group.add_argument(
-            "--model-name", metavar="NAM",
-            help="Needed if MODFLOW 6 simulation has more than one model")
     grid_group.add_argument(
         "--projection", metavar="STR", default="",
         help="Projection or coordinate reference system for --grid-from-bbox. "
@@ -134,15 +134,19 @@ def process_grid_options(args, logger):
                     f"cannot read from vector: {err}", "grid_from_vector"))
         mask = grid.mask_from_vector(fname, layer=layer)
     elif has_flopy and args.grid_from_modflow is not None:
+        if ":" in args.grid_from_modflow:
+            split = args.grid_from_modflow.index(":")
+            model = args.grid_from_modflow[:split]
+            model_name = args.grid_from_modflow[(1 + split):]
+        else:
+            model = args.grid_from_modflow
+            model_name = None
         if args.projection == "":
             projection = None
         else:
             projection = args.projection
-        grid = Grid.from_modflow(
-            args.grid_from_modflow, model_name=args.model_name,
-            projection=projection)
-        mask = grid.mask_from_modflow(
-            args.grid_from_modflow, model_name=args.model_name)
+        grid = Grid.from_modflow(model, model_name, projection=projection)
+        mask = grid.mask_from_modflow(model, model_name=model_name)
     else:
         raise NotImplementedError("whoops")
     return grid, mask

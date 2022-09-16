@@ -39,14 +39,37 @@ Run `pytest -v`.
 <matplotlib.image.AxesImage at 0x7fb6bc4ad6d0>
 ```
 
-Array from vector:
+Array from vector, write PNG image:
 ```bash
-$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-vector tests/data/Mana_polygons.shp --array-from-vector-attribute=K_m_d
+$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 \
+    --array-from-vector tests/data/Mana_polygons.shp \
+    --array-from-vector-attribute=K_m_d \
+    --write-image /tmp/Mana_Kmd.png
 ```
 
-Array from raster:
+Array from raster, write GeoTIFF raster:
 ```bash
-$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-raster tests/data/Mana.tif
+$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 \
+    --array-from-raster tests/data/Mana.tif \
+    --write-raster /tmp/Mana_10m.tif
+```
+
+Array from netCDF, write text array file for each time stat:
+```bash
+$ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 \
+    --array-from-vector tests/data/waitaku2.shp \
+    --array-from-vector-attribute rid \
+    --array-from-netcdf tests/data/waitaku2.nc:rid:__xarray_dataarray_variable__ \
+    --time-stats "quantile(0.75),max" \
+    --write-text /tmp/waitaku2_cat.ref
+```
+
+Array from MODFLOW, write text array file:
+```bash
+$ gridit --grid-from-modflow tests/data/modflow/mfsim.nam:h6 \
+    --array-from-vector tests/data/waitaku2.shp \
+    --array-from-vector-attribute rid \
+    --write-text /tmp/waitaku2_rid.ref
 ```
 
 See other options with:

@@ -1,6 +1,6 @@
 """Command-line interface for grid package."""
-import argparse
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 from textwrap import dedent
 
@@ -12,11 +12,6 @@ except ModuleNotFoundError:
     rasterio = None
 
 try:
-    import netCDF4
-except ModuleNotFoundError:
-    netCDF4 = None
-
-try:
     import fiona
 except ModuleNotFoundError:
     fiona = None
@@ -26,10 +21,12 @@ try:
 except ModuleNotFoundError:
     plt = None
 
-
 from . import cli, GridPolyConv
 from .display import print_array
 from .logger import get_logger
+
+has_flopy = find_spec("flopy") is not None
+has_netcdf4 = find_spec("netCDF4") is not None
 
 
 def cli_main():
@@ -38,24 +35,57 @@ def cli_main():
     To use:
     $ gridit -h
     """
+    import argparse
+    from tempfile import gettempdir
+
+    if sys.platform.startswith("win"):
+        cl = "^"  # assume cmd.exe
+    else:
+        cl = "\\"  # assume bash-like
+    tmpdir = Path(gettempdir())
+    mana_shp = Path("tests/data/Mana_polygons.shp")
+    examples = f"""\
+Examples:
+
+  Grid from vector:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10
+
+  Array from vector, write PNG image:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+      --array-from-vector {mana_shp} {cl}
+      --array-from-vector-attribute=K_m_d {cl}
+      --write-image {tmpdir / "Mana_Kmd.png"}
+
+  Array from raster, write GeoTIFF raster:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+      --array-from-raster {Path("tests/data/Mana.tif")} {cl}
+      --write-raster {tmpdir / "Mana_10m.tif"}
+"""
+    if has_netcdf4:
+        waitaku2 = Path("tests/data/waitaku2")
+        examples += f"""\
+
+  Array from netCDF, write text array files:
+  $ gridit --grid-from-vector {waitaku2}.shp --resolution 250 {cl}
+      --array-from-vector {waitaku2}.shp {cl}
+      --array-from-vector-attribute rid {cl}
+      --array-from-netcdf {waitaku2}.nc:rid:__xarray_dataarray_variable__ {cl}
+      --time-stats "quantile(0.75),max" {cl}
+      --write-text {tmpdir / "waitaku2_cat.ref"}
+"""  # noqa
+    if has_flopy:
+        examples += f"""\
+
+  Array from MODFLOW, write text array file:
+  $ gridit --grid-from-modflow {Path("tests/data/modflow/mfsim.nam")}:h6 {cl}
+      --array-from-vector {waitaku2}.shp {cl}
+      --array-from-vector-attribute rid {cl}
+      --write-text {tmpdir / "waitaku2_rid.txt"}
+"""
     parser = argparse.ArgumentParser(
         prog=__package__, description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=dedent("""\
-        Examples:
-
-          Grid from vector:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10
-
-          Array from vector:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-vector tests/data:Mana_polygons --array-from-vector-attribute=K_m_d
-
-          Array from raster:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-raster tests/data/Mana.tif
-
-          Array from netCDF:
-          $ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 --array-from-vector tests/data/waitaku2.shp --array-from-vector-attribute rid --array-from-netcdf tests/data/waitaku2.nc:rid:__xarray_dataarray_variable__ --time-stats "quantile(0.75),max"
-        """))  # noqa
+        epilog=examples)
 
     parser.add_argument(
         "--logger", metavar="LEVEL", default="INFO",
@@ -84,7 +114,7 @@ def cli_main():
         parser.add_argument_group(
             "Array from raster", "rasterio not installed")
 
-    if netCDF4 and fiona:
+    if has_netcdf4 and fiona:
         array_from_netcdf_group = parser.add_argument_group(
             "Array from catchment netCDF")
         array_from_netcdf_group.add_argument(
@@ -197,7 +227,7 @@ def cli_main():
             fname = Path(args.write_image)
             title = fname.stem
             if part:
-                fname = fname.with_stem(f"{fname.stem}_{part}")
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
                 title += " " + orig_part
             fig, ax = plt.subplots(nrows=1, ncols=1)
             im = ax.imshow(ar)
@@ -212,7 +242,7 @@ def cli_main():
         if args.write_raster is not None:
             fname = Path(args.write_raster)
             if part:
-                fname = fname.with_stem(f"{fname.stem}_{part}")
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
             try:
                 grid.write_raster(ar, fname)
             except rasterio.errors.RasterioIOError as err:
@@ -220,7 +250,7 @@ def cli_main():
         if args.write_text is not None:
             fname = Path(args.write_text)
             if part:
-                fname = fname.with_stem(f"{fname.stem}_{part}")
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
             logger.info("writing text: %s", fname)
             try:
                 np.savetxt(fname, ar, args.write_text_format)
