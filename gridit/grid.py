@@ -6,6 +6,7 @@ import numpy as np
 from importlib.util import find_spec
 from math import floor, ceil
 from pathlib import Path
+from warnings import warn
 
 from .display import shorten
 from .logger import get_logger
@@ -46,19 +47,27 @@ def get_modflow_model(model, model_name=None, logger=None):
         if logger is not None:
             logger.info("reading mf6 simulation from '%s'", sim_ws)
         sim = flopy.mf6.MFSimulation.load(
-            sim_ws=sim_ws, strict=False, verbosity_level=0, load_only=["dis"])
+            sim_ws=sim_ws, strict=False, verbosity_level=0,
+            load_only=["dis", "tdis"])
         model_names = list(sim.model_names)
         if model_name is None:
+            model_name = model_names[0]
+            msg = "a model name should be specified, "
             if len(model_names) > 1:
-                model_name = model_names[0]
-                if logger is not None:
-                    logger.warning(
-                        "mfsim.nam has %d models (%s); selecting first",
-                        len(model_names), model_names)
+                msg += "mfsim.nam has %d models (%s); selecting first"
+                args = (len(model_names), model_names)
+            else:
+                msg += "selecting %r from mfsim.nam"
+                args = (model_name,)
+            if logger is None:
+                warn(msg % args, UserWarning, stacklevel=2)
+            else:
+                logger.warning(msg, *args)
         elif model_name not in model_names:
             raise KeyError(
                 f"model name {model_name} not found in {model_names}")
         model = sim.get_model(model_name)
+        setattr(model, "tdis", sim.tdis)  # this is a bit of a hack
         return model
     elif pth.is_file():  # assume 'classic' MOFLOW file
         model = flopy.modflow.Modflow.load(
@@ -830,7 +839,7 @@ class Grid:
         mask_cache[mask_cache_key] = mask
         return mask
 
-    def write_raster(self, array, fname: str, driver: str = "GTiff"):
+    def write_raster(self, array, fname: str, driver=None):
         """Write array to a raster file format.
 
         Parameters
@@ -839,8 +848,8 @@ class Grid:
             Array to write; must have 2-dimensions that match shape.
         fname : str
             Output file to write.
-        driver : str, optional
-            Raster driver. Default is "GTiff" for GeoTIFF.
+        driver : str or None (default)
+            Raster driver. Default None will determine driver from fname.
 
         Raises
         ------
@@ -856,6 +865,9 @@ class Grid:
         elif array.shape != self.shape:
             raise ValueError("array must have same shape " + str(self.shape))
         self.logger.info("writing raster file: %s", fname)
+        if driver is None:
+            from rasterio.drivers import driver_from_extension
+            driver = driver_from_extension(fname)
         kwds = {
             "driver": driver,
             "width": self.shape[1],

@@ -34,13 +34,16 @@ def test_grid_from_bbox(grid_from_bbox_args):
 
 
 @requires_pkg("rasterio")
-def test_grid_from_bbox_array_from_raster(grid_from_bbox_args):
+def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
+    out_path = tmp_path / "out.tif"
     stdout, stderr, returncode = run_cli(
         grid_from_bbox_args +
-        ["--array-from-raster", mana_tif])
+        ["--array-from-raster", mana_tif,
+         "--write-raster", str(out_path)])
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
+    assert out_path.exists()
 
 
 @requires_pkg("fiona")
@@ -53,15 +56,19 @@ def test_grid_from_bbox_array_from_vector(grid_from_bbox_args):
     assert returncode == 0
 
 
-@requires_pkg("fiona")
-def test_grid_from_bbox_array_from_vector_attribute(grid_from_bbox_args):
+@requires_pkg("fiona", "matplotlib")
+def test_grid_from_bbox_array_from_vector_attribute(
+        tmp_path, grid_from_bbox_args):
+    out_path = tmp_path / "out.png"
     stdout, stderr, returncode = run_cli(
         grid_from_bbox_args +
         ["--array-from-vector", mana_shp,
-         "--array-from-vector-attribute", "K_m_d"])
+         "--array-from-vector-attribute", "K_m_d",
+         "--write-image", str(out_path)])
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
+    assert out_path.exists()
 
 
 @requires_pkg("fiona", "netcdf4", "xarray")
@@ -95,14 +102,17 @@ def test_grid_from_modflow_classic(grid_from_bbox_args):
 
 
 @requires_pkg("fiona", "flopy")
-def test_grid_from_modflow_array_from_vector_attribute(grid_from_bbox_args):
+def test_grid_from_modflow_array_from_vector_attribute(
+        tmp_path, grid_from_bbox_args):
+    out_path = tmp_path / "out.txt"
     stdout, stderr, returncode = run_cli([
         module_name,
-        "--grid-from-modflow", modflow_dir / "mfsim.nam",
-        "--model-name", "h6",
+        "--grid-from-modflow", str(modflow_dir / "mfsim.nam") + ":h6",
         "--array-from-vector", waitaku2_shp,
         "--array-from-vector-attribute", "rid",
+        "--write-text", str(out_path),
     ])
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
+    assert out_path.exists()

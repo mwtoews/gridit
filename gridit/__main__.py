@@ -1,7 +1,10 @@
 """Command-line interface for grid package."""
-import argparse
 import sys
+from importlib.util import find_spec
+from pathlib import Path
 from textwrap import dedent
+
+import numpy as np
 
 try:
     import rasterio
@@ -9,19 +12,21 @@ except ModuleNotFoundError:
     rasterio = None
 
 try:
-    import netCDF4
-except ModuleNotFoundError:
-    netCDF4 = None
-
-try:
     import fiona
 except ModuleNotFoundError:
     fiona = None
 
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    plt = None
 
 from . import cli, GridPolyConv
 from .display import print_array
 from .logger import get_logger
+
+has_flopy = find_spec("flopy") is not None
+has_netcdf4 = find_spec("netCDF4") is not None
 
 
 def cli_main():
@@ -30,28 +35,61 @@ def cli_main():
     To use:
     $ gridit -h
     """
+    import argparse
+    from tempfile import gettempdir
+
+    if sys.platform.startswith("win"):
+        cl = "^"  # assume cmd.exe
+    else:
+        cl = "\\"  # assume bash-like
+    tmpdir = Path(gettempdir())
+    mana_shp = Path("tests/data/Mana_polygons.shp")
+    examples = f"""\
+Examples:
+
+  Grid from vector:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10
+
+  Array from vector, write PNG image:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+      --array-from-vector {mana_shp} {cl}
+      --array-from-vector-attribute=K_m_d {cl}
+      --write-image {tmpdir / "Mana_Kmd.png"}
+
+  Array from raster, write GeoTIFF raster:
+  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+      --array-from-raster {Path("tests/data/Mana.tif")} {cl}
+      --write-raster {tmpdir / "Mana_10m.tif"}
+"""
+    if has_netcdf4:
+        waitaku2 = Path("tests/data/waitaku2")
+        examples += f"""\
+
+  Array from netCDF, write text array files:
+  $ gridit --grid-from-vector {waitaku2}.shp --resolution 250 {cl}
+      --array-from-vector {waitaku2}.shp {cl}
+      --array-from-vector-attribute rid {cl}
+      --array-from-netcdf {waitaku2}.nc:rid:__xarray_dataarray_variable__ {cl}
+      --time-stats "quantile(0.75),max" {cl}
+      --write-text {tmpdir / "waitaku2_cat.ref"}
+"""  # noqa
+    if has_flopy:
+        examples += f"""\
+
+  Array from MODFLOW, write text array file:
+  $ gridit --grid-from-modflow {Path("tests/data/modflow/mfsim.nam")}:h6 {cl}
+      --array-from-vector {waitaku2}.shp {cl}
+      --array-from-vector-attribute rid {cl}
+      --write-text {tmpdir / "waitaku2_rid.txt"}
+"""
     parser = argparse.ArgumentParser(
         prog=__package__, description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=dedent("""\
-        Examples:
-
-          Grid from vector:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10
-
-          Array from vector:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-vector tests/data:Mana_polygons --array-from-vector-attribute=K_m_d
-
-          Array from raster:
-          $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 --array-from-raster tests/data/Mana.tif
-
-          Array from netCDF:
-          $ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 --array-from-vector tests/data/waitaku2.shp --array-from-vector-attribute rid --array-from-netcdf tests/data/waitaku2.nc:rid:__xarray_dataarray_variable__ --time-stats "quantile(0.75),max"
-        """))  # noqa
+        epilog=examples)
 
     parser.add_argument(
         "--logger", metavar="LEVEL", default="INFO",
-        help="Logger level, default INFO")
+        help="Logger level, default INFO. Use WARNING to show fewer messages.")
 
     cli.add_grid_parser_arguments(parser)
 
@@ -76,7 +114,7 @@ def cli_main():
         parser.add_argument_group(
             "Array from raster", "rasterio not installed")
 
-    if netCDF4 and fiona:
+    if has_netcdf4 and fiona:
         array_from_netcdf_group = parser.add_argument_group(
             "Array from catchment netCDF")
         array_from_netcdf_group.add_argument(
@@ -140,6 +178,23 @@ def cli_main():
         parser.add_argument_group(
             "Array from vector", "fiona not installed")
 
+    write_output_group = parser.add_argument_group("Write outputs")
+    write_output_group.add_argument(
+        "--turn-off-print-array", action="store_true",
+        help="Disable printing array image to console")
+    write_output_group.add_argument(
+        "--write-image", metavar="FILE",
+        help="Write array image file, e.g., 'output.png'")
+    write_output_group.add_argument(
+        "--write-raster", metavar="FILE",
+        help="Write array raster file, e.g., 'output.tif'")
+    write_output_group.add_argument(
+        "--write-text", metavar="FILE",
+        help="Write array text file, e.g. 'output.txt'")
+    write_output_group.add_argument(
+        "--write-text-format", metavar="FMT", default="%s",
+        help="C format for --write-text. Default is '%%s' for free format.")
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
@@ -154,9 +209,53 @@ def cli_main():
         m = __package__ + ": error: "
         if name:
             m += "--" + name.replace("_", "-") + ": "
-        print(m + msg, file=sys.stderr)
+        # print(m + msg, file=sys.stderr)
+        logger.error(m + msg)
         if exit:
             sys.exit(exit)
+
+    def write_output(ar, part=None):
+        orig_part = part
+        if part is not None:
+            part = part.replace(" ", "_")
+        if ar.dtype == np.float64:
+            ar = ar.astype(np.float32)
+        if not args.turn_off_print_array:
+            print_array(ar, logger=logger)
+        if args.write_image is not None:
+            # Write matplotlib images
+            fname = Path(args.write_image)
+            title = fname.stem
+            if part:
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
+                title += " " + orig_part
+            fig, ax = plt.subplots(nrows=1, ncols=1)
+            im = ax.imshow(ar)
+            ax.set_title(title)
+            fig = plt.gcf()
+            fig.colorbar(im)
+            logger.info("writing image: %s", fname)
+            try:
+                fig.savefig(fname)
+            except OSError as err:
+                error(f"cannot write image: {err}", exit=0)
+        if args.write_raster is not None:
+            fname = Path(args.write_raster)
+            if part:
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
+            try:
+                grid.write_raster(ar, fname)
+            except rasterio.errors.RasterioIOError as err:
+                error(f"cannot write raster: {err}", exit=0)
+        if args.write_text is not None:
+            fname = Path(args.write_text)
+            if part:
+                fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
+            logger.info("writing text: %s", fname)
+            try:
+                np.savetxt(fname, ar, args.write_text_format)
+            except OSError as err:
+                error(f"cannot write text: {err}", exit=0)
 
     # Process grid options
 
@@ -182,7 +281,9 @@ def cli_main():
             )
         except fiona.errors.DriverError as err:
             error(str(err), "array_from_raster", exit=False)
-        print_array(array, logger=logger)
+        write_output(array)
+        logger.info("done")
+        return
 
     if getattr(args, "array_from_netcdf", None):
         name_nc = "array_from_netcdf"
@@ -224,9 +325,9 @@ def cli_main():
                     idxs.append(array.shape[0] - 1)
                 for idx in idxs:
                     logger.info("array index: %s", idx)
-                    print_array(array[idx], logger=logger)
+                    write_output(array[idx], part=f"{key} {idx}")
             else:
-                print_array(array, logger=logger)
+                write_output(array, part=key)
         logger.info("done")
         return
 
@@ -245,9 +346,11 @@ def cli_main():
                 fill=args.array_from_vector_fill,
                 refine=args.array_from_vector_refine,
             )
+            write_output(array)
+            logger.info("done")
+            return
         except rasterio.errors.RasterioIOError as err:
             error(str(err), "array_from_vector", exit=False)
-        print_array(array, logger=logger)
 
     logger.info("done")
 
