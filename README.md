@@ -13,14 +13,21 @@ This package primarily depends on NumPy and SciPy, and has several optional depe
 
 Pip can be used to install all optional dependencies:
 ```bash
-$ pip install .[optional]
+$ pip install gridit[optional]
+```
+
+Or from a clone of this repository, create an "editable" install:
+```bash
+$ pip install -e .[optional]
 ```
 
 ### Testing
 
 Run `pytest -v`.
 
-## Example
+## Examples
+
+### Python
 
 ```python
 >>> import matplotlib.pyplot as plt  # optional
@@ -38,6 +45,8 @@ Run `pytest -v`.
 >>> plt.imshow(ar_rast)
 <matplotlib.image.AxesImage at 0x7fb6bc4ad6d0>
 ```
+
+### Command line
 
 Array from vector, write PNG image:
 ```bash
@@ -59,7 +68,7 @@ Array from netCDF, write text array file for each time stat:
 $ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 \
     --array-from-vector tests/data/waitaku2.shp \
     --array-from-vector-attribute rid \
-    --array-from-netcdf tests/data/waitaku2.nc:rid:__xarray_dataarray_variable__ \
+    --array-from-netcdf tests/data/waitaku2.nc:rid:myvar:0 \
     --time-stats "quantile(0.75),max" \
     --write-text /tmp/waitaku2_cat.ref
 ```

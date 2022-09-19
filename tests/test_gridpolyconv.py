@@ -345,17 +345,29 @@ def test_waitaku2_different_projection(waitaku2_index_values):
 
 
 @requires_pkg("netcdf4", "xarray")
-def test_array_from_netcdf_errors(waitaku2_gpc_rid_2):
+def test_array_from_netcdf_errors(caplog, waitaku2_gpc_rid_2):
     gpc = waitaku2_gpc_rid_2
-    vn = "__xarray_dataarray_variable__"
-    assert gpc.array_from_netcdf(waitaku2_nc, "rid", vn) is not None
+    # works without error/warning
+    with caplog.at_level(logging.WARNING):
+        res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx=0)
+        assert isinstance(res, dict)
+        assert len(caplog.messages) == 0
+        # now generate one warning
+        res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar")
+        assert isinstance(res, dict)
+        assert len(caplog.messages) == 1
+        assert "dataset has extra dimension 'run'" in caplog.messages[-1]
     with pytest.raises(AttributeError, match="cannot find 'novar' in variabl"):
         gpc.array_from_netcdf(waitaku2_nc, "rid", "novar")
     with pytest.raises(AttributeError, match="cannot find 'noidx' in variabl"):
-        gpc.array_from_netcdf(waitaku2_nc, "noidx", vn)
-    with pytest.raises(ValueError, match=f"expected 1-d {vn} index dimension"):
-        gpc.array_from_netcdf(waitaku2_nc, vn, vn)
-    args = (waitaku2_nc, "rid", vn)
+        gpc.array_from_netcdf(waitaku2_nc, "noidx", "myvar")
+    with pytest.raises(ValueError, match="expected 1-d myvar index dimension"):
+        gpc.array_from_netcdf(waitaku2_nc, "myvar", "myvar")
+    with pytest.raises(IndexError, match="index 2 is out of bounds for axis "):
+        gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx=2)
+    with pytest.raises(KeyError):  # xidx should be int
+        gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx="0")
+    args = (waitaku2_nc, "rid", "myvar")
     with pytest.raises(ValueError, match="expected one ':' in time stats"):
         gpc.array_from_netcdf(*args, time_stats="Jan:mean:max")
     with pytest.raises(ValueError, match="too many '-' for time_window"):
@@ -371,15 +383,16 @@ def test_array_from_netcdf_errors(waitaku2_gpc_rid_2):
 @requires_pkg("netcdf4", "xarray")
 def test_array_from_netcdf(waitaku2_gpc_rid_2):
     gpc = waitaku2_gpc_rid_2
-    args = (waitaku2_nc, "rid", "__xarray_dataarray_variable__")
+    args = (waitaku2_nc, "rid", "myvar")
+    kwargs = {"xidx": 0}
     # 1D values with default time_stats="mean"
-    r_default = gpc.array_from_netcdf(*args)
+    r_default = gpc.array_from_netcdf(*args, **kwargs)
     assert isinstance(r_default, dict)
     assert list(r_default.keys()) == ["mean"]
     ar_default = r_default["mean"]
     assert ar_default.shape == (24, 16)
     assert ar_default.dtype == np.float64
-    r_mean = gpc.array_from_netcdf(*args, time_stats="mean")
+    r_mean = gpc.array_from_netcdf(*args, **kwargs, time_stats="mean")
     assert list(r_mean.keys()) == ["mean"]
     ar_mean = r_mean["mean"]
     np.testing.assert_equal(ar_default, ar_mean)
@@ -388,7 +401,7 @@ def test_array_from_netcdf(waitaku2_gpc_rid_2):
     np.testing.assert_approx_equal(ar_mean.sum(), 1.6433643313357607)
     # process several time stats
     r3 = gpc.array_from_netcdf(
-        *args, time_stats="median,min,max,quantile(0.25)")
+        *args, **kwargs, time_stats="median,min,max,quantile(0.25)")
     assert list(r3.keys()) == ["median", "min", "max", "quantile(0.25)"]
     ar_med = r3["median"]
     np.testing.assert_approx_equal(ar_med.min(), 0.0007635842193849385)
@@ -407,7 +420,7 @@ def test_array_from_netcdf(waitaku2_gpc_rid_2):
     np.testing.assert_approx_equal(ar_q1.max(), 0.002559370594099164)
     np.testing.assert_approx_equal(ar_q1.sum(), 0.8835400953612407)
     # 2D values, all times returned
-    r_none = gpc.array_from_netcdf(*args, time_stats=None)
+    r_none = gpc.array_from_netcdf(*args, **kwargs, time_stats=None)
     assert list(r_none.keys()) == [None]
     ar_none = r_none[None]
     assert ar_none.shape == (371, 24, 16)

@@ -73,7 +73,7 @@ Examples:
   $ gridit --grid-from-vector {waitaku2}.shp --resolution 250 {cl}
       --array-from-vector {waitaku2}.shp {cl}
       --array-from-vector-attribute rid {cl}
-      --array-from-netcdf {waitaku2}.nc:rid:__xarray_dataarray_variable__ {cl}
+      --array-from-netcdf {waitaku2}.nc:rid:myvar:0 {cl}
       --time-stats "quantile(0.75),max" {cl}
       --write-text {tmpdir / "waitaku2_cat.ref"}
 """  # noqa
@@ -119,12 +119,14 @@ Examples:
         array_from_netcdf_group = parser.add_argument_group(
             "Array from catchment netCDF")
         array_from_netcdf_group.add_argument(
-            "--array-from-netcdf", metavar="F:I:V",
+            "--array-from-netcdf", metavar="F:I:V[:X]",
             help=dedent("""\
                 Source netCDF of catchment values supplied in the format:
-                'file.nc:idx_name:var_name' where 'file.nc' is a path to a
-                netCDF file, 'idx_name' is the variable name with the polygon
-                index, and 'var_name' is the name of the variable for values.
+                'file.nc:idx_name:var_name[:xidx]' where 'file.nc' is a path
+                to a netCDF file, 'idx_name' is the variable name with the
+                polygon index, 'var_name' is the name of the variable for
+                values, and 'xidx' is an extra dimension 0-based index, which
+                may be required for datasets with multiple runs or ensembles.
                 If the variable has a time dimension, it is reduced by
                 evaluating time statistics, with default 'mean'."""))
         array_from_netcdf_group.add_argument(
@@ -299,7 +301,7 @@ Examples:
         name_nc = "array_from_netcdf"
         nc_arg = getattr(args, name_nc)
         try:
-            nc_fname, idx_name, var_name = cli.process_nc_arg(nc_arg)
+            nc_fname, idx_name, var_name, xidx = cli.process_nc_arg(nc_arg)
         except ValueError as err:
             error(err, name_nc, show_usage=True)
 
@@ -322,7 +324,7 @@ Examples:
 
         fill = args.array_from_vector_fill
         ar_d = gpc.array_from_netcdf(
-            nc_fname, idx_name, var_name,
+            nc_fname, idx_name, var_name, xidx=xidx,
             time_stats=args.time_stats, fill=fill, enforce1d=True)
         for key, array in ar_d.items():
             logger.info("time stats: %s", key)

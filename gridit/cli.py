@@ -153,23 +153,29 @@ def process_grid_options(args, logger):
 
 
 def process_nc_arg(arg):
-    """Process netCDF argument with format 'file.nc:idx_name:var_name'.
+    """Process netCDF argument with format 'file.nc:idx_name:var_name[:xidx]'.
 
     Returns
     -------
     tuple
-        (fname, idx_name, var_name)
+        (fname, idx_name, var_name, xidx)
 
     Raises
     ------
     ValueError
     """
-    if arg.count(":") < 2:
+    col_count = arg.count(":")
+    if col_count == 2:
+        fname, idx_name, var_name = arg.split(":", 2)
+        xidx = None
+    elif col_count == 3:
+        fname, idx_name, var_name, xidx = arg.split(":", 3)
+        try:
+            xidx = int(xidx)
+        except ValueError:
+            raise ValueError(
+                f"xidx must be provided as an integer; found {xidx!r}")
+    else:
         raise ValueError(
-            "expected format 'file.nc:idx_name:var_name'")
-    split1 = arg.index(":")
-    split2 = arg.index(":", split1 + 1)
-    fname = arg[:split1]
-    idx_name = arg[(split1 + 1):split2]
-    var_name = arg[(split2 + 1):]
-    return fname, idx_name, var_name
+            "expected format 'file.nc:idx_name:var_name[:xidx]'")
+    return fname, idx_name, var_name, xidx
