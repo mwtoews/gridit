@@ -64,7 +64,7 @@ $ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 \
     --write-text /tmp/waitaku2_cat.ref
 ```
 
-Array from MODFLOW, write text array file:
+Grid from MODFLOW, array from vector, write text array file:
 ```bash
 $ gridit --grid-from-modflow tests/data/modflow/mfsim.nam:h6 \
     --array-from-vector tests/data/waitaku2.shp \

@@ -189,11 +189,10 @@ Examples:
         "--write-raster", metavar="FILE",
         help="Write array raster file, e.g., 'output.tif'")
     write_output_group.add_argument(
-        "--write-text", metavar="FILE",
-        help="Write array text file, e.g. 'output.txt'")
-    write_output_group.add_argument(
-        "--write-text-format", metavar="FMT", default="%s",
-        help="C format for --write-text. Default is '%%s' for free format.")
+        "--write-text", metavar="FILE[:FMT]",
+        help="Write array text file, e.g. 'output.txt'. An optional C format "
+        "specification may follow after ':', e.g. 'output.txt:%%12.7E'. "
+        "The default is '%%s' for free format.")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -248,12 +247,16 @@ Examples:
             except rasterio.errors.RasterioIOError as err:
                 error(f"cannot write raster: {err}", exit=0)
         if args.write_text is not None:
-            fname = Path(args.write_text)
+            fname = args.write_text
+            fmt = "%s"
+            if ":" in args.write_text:
+                fname, fmt = fname.split(":", 1)
             if part:
+                fname = Path(fname)
                 fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
-            logger.info("writing text: %s", fname)
+            logger.info("writing text (%s): %s", fmt, fname)
             try:
-                np.savetxt(fname, ar, args.write_text_format)
+                np.savetxt(fname, ar, fmt)
             except OSError as err:
                 error(f"cannot write text: {err}", exit=0)
 
@@ -294,6 +297,7 @@ Examples:
             error(str(err), name_nc, show_usage=True)
 
         vector_fname = getattr(args, "array_from_vector", None)
+        layer = None
         attr_name = "array_from_vector_attribute"
         attr = getattr(args, attr_name, None)
         if vector_fname is None or attr is None:
@@ -302,11 +306,7 @@ Examples:
                   "to provide spatial distributions of catchment polygons, "
                   "and the common index attribute name", name_nc)
         if ":" in vector_fname:
-            split = vector_fname.index(":")
-            layer = vector_fname[(1 + split):]
-            vector_fname = vector_fname[:split]
-        else:
-            layer = None
+            vector_fname, layer = vector_fname.split(":", 1)
 
         gpc = GridPolyConv.from_grid_vector(
             grid, vector_fname, attr, layer=layer,
@@ -332,13 +332,10 @@ Examples:
         return
 
     if getattr(args, "array_from_vector", None):
-        if ":" in args.array_from_vector:
-            split = args.array_from_vector.index(":")
-            fname = args.array_from_vector[:split]
-            layer = args.array_from_vector[(1 + split):]
-        else:
-            fname = args.array_from_vector
-            layer = None
+        fname = args.array_from_vector
+        layer = None
+        if ":" in fname:
+            fname, layer = fname.split(":", 1)
         try:
             array = grid.array_from_vector(
                 fname=fname, layer=layer,

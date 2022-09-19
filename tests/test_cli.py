@@ -73,6 +73,7 @@ def test_grid_from_bbox_array_from_vector_attribute(
 
 @requires_pkg("fiona", "netcdf4", "xarray")
 def test_grid_from_vector_array_from_netcdf(tmp_path):
+    out_path = tmp_path / "out.txt"
     vn = "__xarray_dataarray_variable__"
     args = ([
         module_name,
@@ -82,12 +83,16 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
         "--array-from-vector-attribute", "rid",
         "--array-from-netcdf", f"{waitaku2_nc}:rid:{vn}",
         "--time-stats", "quantile(0.75),max",
+        "--write-text", str(out_path) + ":%12.7E",
     ])
     with set_env(GRID_CACHE_DIR=str(tmp_path)):
         stdout, stderr, returncode = run_cli(args)
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
+    assert not out_path.exists()
+    assert set(pth.name for pth in out_path.parent.iterdir()).issuperset(
+        {"out_max.txt", "out_quantile(0.75).txt"})
 
 
 @requires_pkg("flopy")
