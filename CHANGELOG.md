@@ -3,6 +3,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3] - 2022-09-19
+### Added
+- Add `array_to_array` function to resample numpy arrays.
+- Add write outputs to cli, including `--write-image`, `--write-raster` and `--write-text`.
+- Add `Grid.from_modflow` and `mask_from_modflow` functions.
+
+### Changed
+- Better missing data handling with `array_from_vector` function.
+- Remove `--array-from-raster-bidx`, use `--array-from-raster FILE[:BIDX]` instead.
+- Handle additional indexing with netCDF files.
+
 ## [0.2] - 2022-08-30
 ### Added
 - Specify Zenodo DOI for project.
@@ -13,6 +24,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.2...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.3...HEAD
+[0.3]: https://github.com/mwtoews/gridit/compare/0.2...0.3
 [0.2]: https://github.com/mwtoews/gridit/compare/0.1...0.2
 [0.1]: https://github.com/mwtoews/gridit/tree/0.1
