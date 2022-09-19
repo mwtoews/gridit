@@ -8,11 +8,15 @@ import numpy as np
 
 try:
     import rasterio
+    from rasterio._err import CPLE_BaseError as RasterioCPLE_BaseError
+    from rasterio.errors import RasterioError
 except ModuleNotFoundError:
     rasterio = None
 
 try:
     import fiona
+    from fiona._err import CPLE_BaseError as FionaCPLE_BaseError
+    from fiona.errors import FionaError
 except ModuleNotFoundError:
     fiona = None
 
@@ -97,12 +101,9 @@ Examples:
         array_from_raster_group = parser.add_argument_group(
             "Array from raster")
         array_from_raster_group.add_argument(
-            "--array-from-raster", metavar="FILE",
-            help="Source raster file"
-        )
-        array_from_raster_group.add_argument(
-            "--array-from-raster-bidx", metavar="BIDX", type=int, default=1,
-            help="Source raster band index, default 1 (first)"
+            "--array-from-raster", metavar="FILE[:BIDX]",
+            help="Source raster file, and optional band index "
+            "(default 1 for first band)."
         )
         array_from_raster_group.add_argument(
             "--array-from-raster-resampling", metavar="SMP",
@@ -147,7 +148,7 @@ Examples:
         array_from_vector_group = parser.add_argument_group(
             "Array from vector")
         array_from_vector_group.add_argument(
-            "--array-from-vector", metavar="FILE",
+            "--array-from-vector", metavar="FILE[:LAYER]",
             help="Source vector file. For multilayer datasources, use the "
             "format 'datasource:layer'"
         )
@@ -205,11 +206,10 @@ Examples:
     def error(msg, name="", show_usage=False, exit=1):
         if show_usage:
             parser.print_usage(sys.stderr)
-        m = __package__ + ": error: "
+        m = ""
         if name:
-            m += "--" + name.replace("_", "-") + ": "
-        # print(m + msg, file=sys.stderr)
-        logger.error(m + msg)
+            m = "--" + name.replace("_", "-") + ": "
+        logger.error(m + str(msg))
         if exit:
             sys.exit(exit)
 
@@ -244,8 +244,8 @@ Examples:
                 fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
             try:
                 grid.write_raster(ar, fname)
-            except rasterio.errors.RasterioIOError as err:
-                error(f"cannot write raster: {err}", exit=0)
+            except (RasterioCPLE_BaseError, RasterioError) as err:
+                error(f"cannot write raster: {err}", exit=1)
         if args.write_text is not None:
             fname = args.write_text
             fmt = "%s"
@@ -265,9 +265,9 @@ Examples:
     try:
         grid, mask = cli.process_grid_options(args, logger)
     except ValueError as err:
-        error(str(err), show_usage=True)
+        error(err, show_usage=True)
     except (ModuleNotFoundError, OSError) as err:
-        error(str(err), show_usage=False)
+        error(err, show_usage=False)
 
     logger.info("%s", grid)
     logger.info("has mask: %s", mask is not None)
@@ -276,14 +276,21 @@ Examples:
 
     array = None
     if getattr(args, "array_from_raster", None):
+        fname = args.array_from_raster
+        bidx = 1
+        if ":" in fname:
+            fname, bidx = fname.split(":", 1)
+            try:
+                bidx = int(bidx)
+            except ValueError as err:
+                error(err, "array_from_raster", True)
         try:
             array = grid.array_from_raster(
-                fname=args.array_from_raster,
-                bidx=args.array_from_raster_bidx,
+                fname=fname, bidx=bidx,
                 resampling=args.array_from_raster_resampling,
             )
-        except fiona.errors.DriverError as err:
-            error(str(err), "array_from_raster", exit=False)
+        except (RasterioCPLE_BaseError, RasterioError) as err:
+            error(err, "array_from_raster", exit=1)
         write_output(array)
         logger.info("done")
         return
@@ -294,7 +301,7 @@ Examples:
         try:
             nc_fname, idx_name, var_name = cli.process_nc_arg(nc_arg)
         except ValueError as err:
-            error(str(err), name_nc, show_usage=True)
+            error(err, name_nc, show_usage=True)
 
         vector_fname = getattr(args, "array_from_vector", None)
         layer = None
@@ -346,8 +353,8 @@ Examples:
             write_output(array)
             logger.info("done")
             return
-        except rasterio.errors.RasterioIOError as err:
-            error(str(err), "array_from_vector", exit=False)
+        except (FionaCPLE_BaseError, FionaError) as err:
+            error(err, "array_from_vector", exit=1)
 
     logger.info("done")
 

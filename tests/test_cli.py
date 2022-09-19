@@ -38,7 +38,7 @@ def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
     out_path = tmp_path / "out.tif"
     stdout, stderr, returncode = run_cli(
         grid_from_bbox_args +
-        ["--array-from-raster", mana_tif,
+        ["--array-from-raster", str(mana_tif) + ":1",
          "--write-raster", str(out_path)])
     assert len(stderr) == 0
     assert len(stdout) > 0
