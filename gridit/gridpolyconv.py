@@ -599,7 +599,7 @@ class GridPolyConv:
         return ar
 
     def array_from_netcdf(
-            self, fname: str, idx_name: str, var_name: str,
+            self, fname: str, idx_name: str, var_name: str, *, xidx=None,
             time_stats: str = "mean", fill=0, enforce1d: bool = False):
         """Return array from a netCDF source with polygon index.
 
@@ -612,6 +612,9 @@ class GridPolyConv:
         var_name : str
             Name of the variable for values. If the dataset has a 'time'
             dimension, time statistics are evaluated for the  catchment values.
+        xidx : int or None (default)
+            If not None, index an extra dimension, such as an ensemble run,
+            using a base-0 index number.
         time_stats : str or None, default "mean"
             Perform statistics on time dimension, if present. The optional
             first part is a time-window, which can be "annual" or a month
@@ -711,10 +714,31 @@ class GridPolyConv:
         if len(idx_dims) != 1:
             raise ValueError(f"expected 1-d {idx_name} index dimension")
         var = ds[var_name]
+        self.logger.info(
+            "found variable %r with %d dims/shape: %s", var_name, var.ndim,
+            ", ".join(f"{k}: {v}" for k, v in zip(var.dims, var.shape)))
         if idx_name not in var.dims:
             var = var.swap_dims({idx_dims[0]: idx_name})
-        # Index dimension must be last
-        if len(var.dims) > 1 and var.dims[-1] != idx_name:
+        # Handle extra dimension/index
+        rem_dims = sorted(set(var.dims).difference({"time", idx_name}))
+        if len(rem_dims) == 1:
+            rem_dim = rem_dims[0]
+            if xidx is None:
+                xidx = 0
+                self.logger.warning(
+                    "dataset has extra dimension %r that should be indexed "
+                    "using xidx; choosing index %s from size %s",
+                    rem_dim, xidx, ds.dims[rem_dim])
+            else:
+                self.logger.info(
+                    "selecting xidx %s from %r with size %s",
+                    xidx, rem_dim, ds.dims[rem_dim])
+            var = var.loc[{rem_dim: xidx}]
+        elif len(rem_dims) == 0 and xidx is not None:
+            self.logger.warning(
+                "xidx %s is ignored, no extra index found", xidx)
+        # variable index dimension must be last
+        if var.ndim > 1 and var.dims[-1] != idx_name:
             var = var.transpose(..., idx_name)
         # Select the values from the catchments
         self.logger.debug(

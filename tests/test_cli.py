@@ -74,14 +74,13 @@ def test_grid_from_bbox_array_from_vector_attribute(
 @requires_pkg("fiona", "netcdf4", "xarray")
 def test_grid_from_vector_array_from_netcdf(tmp_path):
     out_path = tmp_path / "out.txt"
-    vn = "__xarray_dataarray_variable__"
     args = ([
         module_name,
         "--grid-from-vector", waitaku2_shp,
         "--resolution", "250",
         "--array-from-vector", f"{datadir}:waitaku2",
         "--array-from-vector-attribute", "rid",
-        "--array-from-netcdf", f"{waitaku2_nc}:rid:{vn}",
+        "--array-from-netcdf", f"{waitaku2_nc}:rid:myvar:0",
         "--time-stats", "quantile(0.75),max",
         "--write-text", str(out_path) + ":%12.7E",
     ])
