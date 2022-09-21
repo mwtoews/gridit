@@ -33,9 +33,9 @@ Run `pytest -v`.
 >>> import matplotlib.pyplot as plt  # optional
 >>> from gridit import Grid
 
->>> grid = Grid.from_vector("tests/data/Mana_polygons.shp", 10)
+>>> grid = Grid.from_vector("tests/data/Mana_polygons.shp", 100)
 >>> print(grid)
-<Grid: resolution=10.0, shape=(224, 172), top_left=(1748660.0, 5451110.0) />
+<Grid: resolution=100.0, shape=(24, 18), top_left=(1748600.0, 5451200.0) />
 
 >>> ar_vec = grid.array_from_vector("tests/data/Mana_polygons.shp", "K_m_d")
 >>> plt.imshow(ar_vec)
@@ -48,22 +48,22 @@ Run `pytest -v`.
 
 ### Command line
 
-Array from vector, write PNG image:
+Grid and array from vector, write PNG image:
 ```bash
-$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 \
+$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 100 \
     --array-from-vector tests/data/Mana_polygons.shp \
     --array-from-vector-attribute=K_m_d \
     --write-image /tmp/Mana_Kmd.png
 ```
 
-Array from raster, write GeoTIFF raster:
+Grid from bounding box, array from raster, write GeoTIFF raster:
 ```bash
-$ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 10 \
+$ gridit --grid-from-bbox 1748600 5448800 1750400 5451200 --resolution 100 \
     --array-from-raster tests/data/Mana.tif \
-    --write-raster /tmp/Mana_10m.tif
+    --write-raster /tmp/Mana_100m.tif
 ```
 
-Array from netCDF, write text array file for each time stat:
+Grid from vector, array from netCDF, write text array file for each time stat:
 ```bash
 $ gridit --grid-from-vector tests/data/waitaku2.shp --resolution 250 \
     --array-from-vector tests/data/waitaku2.shp \
@@ -78,7 +78,7 @@ Grid from MODFLOW, array from vector, write text array file:
 $ gridit --grid-from-modflow tests/data/modflow/mfsim.nam:h6 \
     --array-from-vector tests/data/waitaku2.shp \
     --array-from-vector-attribute rid \
-    --write-text /tmp/waitaku2_rid.ref
+    --write-text /tmp/waitaku2_rid.txt
 ```
 
 See other options with:

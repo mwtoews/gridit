@@ -51,36 +51,33 @@ def cli_main():
     examples = f"""\
 Examples:
 
-  Grid from vector:
-  $ gridit --grid-from-vector {mana_shp} --resolution 10
-
-  Array from vector, write PNG image:
-  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+  Grid and array from vector, write PNG image:
+  $ gridit --grid-from-vector {mana_shp} --resolution 100 {cl}
       --array-from-vector {mana_shp} {cl}
       --array-from-vector-attribute=K_m_d {cl}
       --write-image {tmpdir / "Mana_Kmd.png"}
 
-  Array from raster, write GeoTIFF raster:
-  $ gridit --grid-from-vector {mana_shp} --resolution 10 {cl}
+  Grid from bounding box, array from raster, write GeoTIFF raster:
+  $ gridit --grid-from-bbox 1748600 5448800 1750400 5451200 --resolution 100 {cl}
       --array-from-raster {Path("tests/data/Mana.tif")} {cl}
-      --write-raster {tmpdir / "Mana_10m.tif"}
-"""
+      --write-raster {tmpdir / "Mana_100m.tif"}
+"""  # noqa
     if has_netcdf4:
         waitaku2 = Path("tests/data/waitaku2")
         examples += f"""\
 
-  Array from netCDF, write text array files:
+  Grid from vector, array from netCDF, write text array file for each time stat:
   $ gridit --grid-from-vector {waitaku2}.shp --resolution 250 {cl}
       --array-from-vector {waitaku2}.shp {cl}
       --array-from-vector-attribute rid {cl}
       --array-from-netcdf {waitaku2}.nc:rid:myvar:0 {cl}
       --time-stats "quantile(0.75),max" {cl}
-      --write-text {tmpdir / "waitaku2_cat.ref"}
+      --write-text {tmpdir / "waitaku2_cat.txt"}
 """  # noqa
     if has_flopy:
         examples += f"""\
 
-  Array from MODFLOW, write text array file:
+  Grid from MODFLOW, array from vector, write text array file:
   $ gridit --grid-from-modflow {Path("tests/data/modflow/mfsim.nam")}:h6 {cl}
       --array-from-vector {waitaku2}.shp {cl}
       --array-from-vector-attribute rid {cl}
@@ -114,37 +111,6 @@ Examples:
     else:
         parser.add_argument_group(
             "Array from raster", "rasterio not installed")
-
-    if has_netcdf4 and fiona:
-        array_from_netcdf_group = parser.add_argument_group(
-            "Array from catchment netCDF")
-        array_from_netcdf_group.add_argument(
-            "--array-from-netcdf", metavar="F:I:V[:X]",
-            help=dedent("""\
-                Source netCDF of catchment values supplied in the format:
-                'file.nc:idx_name:var_name[:xidx]' where 'file.nc' is a path
-                to a netCDF file, 'idx_name' is the variable name with the
-                polygon index, 'var_name' is the name of the variable for
-                values, and 'xidx' is an extra dimension 0-based index, which
-                may be required for datasets with multiple runs or ensembles.
-                If the variable has a time dimension, it is reduced by
-                evaluating time statistics, with default 'mean'."""))
-        array_from_netcdf_group.add_argument(
-            "--time-stats", metavar="TYPE", default="mean",
-            help=dedent("""\
-                Compute time-statistics along time dimension.
-                Default "mean" evaluates the mean values. Other types may
-                include "min", "median", "max", "quantile(N)" where N is a
-                real value between 0.0 and 1.0. An optional time-window can
-                specify a range of months or specify hydrlogic years, which
-                modifies "min", "median" and "max" calculations to find
-                years with "lowest", "middle" or "highest" total values.
-                E.g. "Jul-Jun:min" will find the NZ water year with lowest
-                values."""))
-    else:
-        parser.add_argument_group(
-            "Array from catchment netCDF",
-            "netCDF4 and/or fiona not installed")
 
     if fiona:
         array_from_vector_group = parser.add_argument_group(
@@ -181,6 +147,37 @@ Examples:
         parser.add_argument_group(
             "Array from vector", "fiona not installed")
 
+    if has_netcdf4 and fiona:
+        array_from_netcdf_group = parser.add_argument_group(
+            "Array from catchment netCDF")
+        array_from_netcdf_group.add_argument(
+            "--array-from-netcdf", metavar="F:I:V[:X]",
+            help=dedent("""\
+                Source netCDF of catchment values supplied in the format:
+                'file.nc:idx_name:var_name[:xidx]' where 'file.nc' is a path
+                to a netCDF file, 'idx_name' is the variable name with the
+                polygon index, 'var_name' is the name of the variable for
+                values, and 'xidx' is an extra dimension 0-based index, which
+                may be required for datasets with multiple runs or ensembles.
+                If the variable has a time dimension, it is reduced by
+                evaluating time statistics, with default 'mean'."""))
+        array_from_netcdf_group.add_argument(
+            "--time-stats", metavar="TYPE", default="mean",
+            help=dedent("""\
+                Compute time-statistics along time dimension.
+                Default "mean" evaluates the mean values. Other types may
+                include "min", "median", "max", "quantile(N)" where N is a
+                real value between 0.0 and 1.0. An optional time-window can
+                specify a range of months or specify hydrlogic years, which
+                modifies "min", "median" and "max" calculations to find
+                years with "lowest", "middle" or "highest" total values.
+                E.g. "Jul-Jun:min" will find the NZ water year with lowest
+                values."""))
+    else:
+        parser.add_argument_group(
+            "Array from catchment netCDF",
+            "netCDF4 and/or fiona not installed")
+
     write_output_group = parser.add_argument_group("Write outputs")
     write_output_group.add_argument(
         "--turn-off-print-array", action="store_true",
@@ -202,6 +199,7 @@ Examples:
         sys.exit(0)
 
     args = parser.parse_args()
+    print(args)
 
     logger = get_logger(__package__, args.logger)
 
