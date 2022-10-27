@@ -804,10 +804,14 @@ class GridPolyConv:
                     dict(sorted(Counter(year[month_sel].to_numpy()).items())))
                 # evaluate weights (i.e. area) for each catchment
                 if self.weight is None:
-                    weight = 1.0
+                    wvar = var
                 else:
-                    weight = self.weight.sum((1, 2))
-                wvar = weight * var
+                    weight_l = [0.0] * len(self.poly_idx)
+                    for idx0 in range(len(weight_l)):
+                        if (sel := self.idx_ar == (idx0 + 1)).any():
+                            weight_l[idx0] = self.weight[sel].sum()
+                    weight = np.array(weight_l, dtype=float)
+                    wvar = weight * var
                 wvar_mean = wvar.groupby(year).mean()
                 if has_partial_month_sel:
                     wvar_mean = wvar_mean.drop_sel(year=bogus)
