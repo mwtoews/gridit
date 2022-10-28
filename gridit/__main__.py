@@ -248,11 +248,13 @@ Examples:
                 error(f"cannot write raster: {err}", exit=1)
         if args.write_text is not None:
             fname = args.write_text
-            fmt = "%s"
-            if ":" in args.write_text:
-                fname, fmt = fname.split(":", 1)
-            if part:
+            if ":" in fname and (split := fname.rindex(":")) > 1:
+                fname = Path(args.write_text[:split])
+                fmt = args.write_text[(split + 1):]
+            else:
                 fname = Path(fname)
+                fmt = "%s"
+            if part:
                 fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
             logger.info("writing text (%s): %s", fmt, fname)
             try:
