@@ -119,13 +119,11 @@ def process_grid_options(args, logger):
         if args.resolution is None:
             raise ValueError(
                 error_msg("requires --resolution", "grid_from_vector"))
-        if ":" in args.grid_from_vector:
-            split = args.grid_from_vector.index(":")
+        fname = args.grid_from_vector
+        layer = None
+        if ":" in fname and (split := fname.rindex(":")) > 1:
             fname = args.grid_from_vector[:split]
             layer = args.grid_from_vector[(1 + split):]
-        else:
-            fname = args.grid_from_vector
-            layer = None
         try:
             grid = Grid.from_vector(fname, layer=layer, **grid_args)
         except fiona.errors.DriverError as err:
@@ -134,13 +132,11 @@ def process_grid_options(args, logger):
                     f"cannot read from vector: {err}", "grid_from_vector"))
         mask = grid.mask_from_vector(fname, layer=layer)
     elif has_flopy and args.grid_from_modflow is not None:
-        if ":" in args.grid_from_modflow:
-            split = args.grid_from_modflow.index(":")
+        model = args.grid_from_modflow
+        model_name = None
+        if ":" in model and (split := model.rindex(":")) > 1:
             model = args.grid_from_modflow[:split]
             model_name = args.grid_from_modflow[(1 + split):]
-        else:
-            model = args.grid_from_modflow
-            model_name = None
         if args.projection == "":
             projection = None
         else:
