@@ -166,6 +166,10 @@ def test_array_from_values_errors(waitaku2_gpc_rid_2, waitaku2_index_values):
         gpc.array_from_values(list(np.array(index) + 1), values)
 
 
+def min_max_sum(ar):
+    return np.array([ar.min(), ar.max(), ar.sum()])
+
+
 def test_waitaku2_200(waitaku2_index_values):
     expected_fill_value = np.ma.masked_array(0.0).fill_value
     # resolution 200 captures all catchment polygons
@@ -396,37 +400,46 @@ def test_array_from_netcdf(waitaku2_gpc_rid_2):
     assert list(r_mean.keys()) == ["mean"]
     ar_mean = r_mean["mean"]
     np.testing.assert_equal(ar_default, ar_mean)
-    np.testing.assert_approx_equal(ar_mean.min(), 0.000814885541331023)
-    np.testing.assert_approx_equal(ar_mean.max(), 0.004716133698821068)
-    np.testing.assert_approx_equal(ar_mean.sum(), 1.6433643313357607)
+    np.testing.assert_array_almost_equal(
+        min_max_sum(ar_mean),
+        [0.000814885541331023, 0.004716134164482355, 1.643364535892033])
     # process several time stats
     r3 = gpc.array_from_netcdf(
         *args, **kwargs, time_stats="median,min,max,quantile(0.25)")
     assert list(r3.keys()) == ["median", "min", "max", "quantile(0.25)"]
-    ar_med = r3["median"]
-    np.testing.assert_approx_equal(ar_med.min(), 0.0007635842193849385)
-    np.testing.assert_approx_equal(ar_med.max(), 0.00459129037335515)
-    np.testing.assert_approx_equal(ar_med.sum(), 1.5956306542357197)
-    ar_min = r3["min"]
-    np.testing.assert_approx_equal(ar_min.min(), 8.118862751871347e-05)
-    np.testing.assert_approx_equal(ar_min.max(), 0.0009615062735974789)
-    np.testing.assert_approx_equal(ar_min.sum(), 0.33079623253433965)
-    ar_max = r3["max"]
-    np.testing.assert_approx_equal(ar_max.min(), 0.0017967323074117303)
-    np.testing.assert_approx_equal(ar_max.max(), 0.009081936441361904)
-    np.testing.assert_approx_equal(ar_max.sum(), 3.1762626652780455)
-    ar_q1 = r3["quantile(0.25)"]
-    np.testing.assert_approx_equal(ar_q1.min(), 0.00031803673482500017)
-    np.testing.assert_approx_equal(ar_q1.max(), 0.002559370594099164)
-    np.testing.assert_approx_equal(ar_q1.sum(), 0.8835400953612407)
+    np.testing.assert_array_almost_equal(
+        min_max_sum(r3["median"]),
+        [0.0007635842193849385, 0.00459129037335515, 1.5956306542357197])
+    np.testing.assert_array_almost_equal(
+        min_max_sum(r3["min"]),
+        [8.118862751871347e-05, 0.0009615062735974789, 0.33079623253433965])
+    np.testing.assert_array_almost_equal(
+        min_max_sum(r3["max"]),
+        [0.0017967323074117303, 0.009081936441361904, 3.1762626652780455])
+    np.testing.assert_array_almost_equal(
+        min_max_sum(r3["quantile(0.25)"]),
+        [0.00031803673482500017, 0.002559370594099164, 0.8835400953612407])
     # 2D values, all times returned
     r_none = gpc.array_from_netcdf(*args, **kwargs, time_stats=None)
     assert list(r_none.keys()) == [None]
     ar_none = r_none[None]
     assert ar_none.shape == (371, 24, 16)
-    np.testing.assert_approx_equal(ar_none.min(), 8.118862751871347e-05)
-    np.testing.assert_approx_equal(ar_none.max(), 0.009081936441361904)
-    np.testing.assert_approx_equal(ar_none.sum(), 609.6882373648059)
+    np.testing.assert_array_almost_equal(
+        min_max_sum(ar_none),
+        [8.118862751871347e-05, 0.009081936441361904, 609.6882373648059])
+    # define time_window
+    rt = gpc.array_from_netcdf(
+        *args, **kwargs, time_stats="annual:mean,min,max")
+    assert list(rt.keys()) == ["mean", "min", "max"]
+    np.testing.assert_array_almost_equal(
+        min_max_sum(rt["mean"]),
+        [0.000814885541331023, 0.004716134164482355, 1.643364535892033])
+    np.testing.assert_array_almost_equal(
+        min_max_sum(rt["min"]),
+        [0.0007734778919257224, 0.004534569568932056, 1.5795951503532706])
+    np.testing.assert_array_almost_equal(
+        min_max_sum(rt["max"]),
+        [0.0016269355546683073, 0.008276794105768204, 2.893949011049699])
 
 
 @requires_pkg("xarray")
