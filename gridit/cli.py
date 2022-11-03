@@ -63,7 +63,7 @@ def process_grid_options(args, logger):
     ------
     ValueError
         If there is an issue with the argument(s); should show usage.
-    IOError
+    OSError
         If the grid cannot be read.
     """
     def error_msg(msg: str, name: str = ""):

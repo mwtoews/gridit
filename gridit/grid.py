@@ -609,8 +609,8 @@ class Grid:
         return self.array_from_raster(fname, bidx).mask
 
     def array_from_vector(
-            self, fname: str, attribute: str, fill=0, refine: int = 1,
-            layer=None):
+            self, fname: str, attribute: str, *, fill=0, refine: int = 1,
+            layer=None, all_touched=False):
         """Return array from vector source data aligned to grid info.
 
         The datatype is inferred from the attribute values.
@@ -630,6 +630,10 @@ class Grid:
             file to the gridded result.
         layer : int or str, default None
             The integer index or name of a layer in a multi-layer dataset.
+        all_touched : bool, defalt False
+            If True, all grid cells touched by geometries will be burned in.
+            Default False will only burn in cells whose center is within the
+            polygon.
 
         Returns
         -------
@@ -772,10 +776,11 @@ class Grid:
             self.logger.info("rasterizing features to %s fine array", dtype)
             fine_ar = features.rasterize(
                 geom_vals, fine_shape, transform=fine_transform,
-                fill=nodata, dtype=dtype, all_touched=False)
+                fill=nodata, dtype=dtype, all_touched=all_touched)
             self.logger.info(
                 "reprojecting from fine to coarse array using "
-                "%s resampling method", resampling)
+                "%s resampling method and all_touched=%s",
+                resampling, all_touched)
             _ = reproject(
                 fine_ar, ar.data,
                 src_transform=fine_transform, dst_transform=grid_transform,
@@ -783,10 +788,12 @@ class Grid:
                 src_nodata=nodata, dst_nodata=nodata,
                 resampling=resampling)
         else:
-            self.logger.info("rasterizing features to %s array", dtype)
+            self.logger.info(
+                "rasterizing features to %s array with all_touched=%s",
+                dtype, all_touched)
             _ = features.rasterize(
                 geom_vals, self.shape, out=ar.data, transform=grid_transform,
-                dtype=dtype, all_touched=False)
+                dtype=dtype, all_touched=all_touched)
         is_nodata = ar.data == nodata
         if is_nodata.any():
             ar.data[is_nodata] = fill
