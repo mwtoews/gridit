@@ -88,10 +88,6 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=examples)
 
-    parser.add_argument(
-        "--logger", metavar="LEVEL", default="INFO",
-        help="Logger level, default INFO. Use WARNING to show fewer messages.")
-
     cli.add_grid_parser_arguments(parser)
 
     if rasterio:
@@ -194,6 +190,16 @@ Examples:
         "specification may follow after ':', e.g. 'output.txt:%%12.7E'. "
         "The default is '%%s' for free format.")
 
+    # General options
+    parser.add_argument(
+        "--all-touched", action="store_true",
+        help="If enabled, all grid cells touched by geometries will be burned "
+        "in. Otherwise, by default only burn in cells whose center is within "
+        "the polygon.")
+    parser.add_argument(
+        "--logger", metavar="LEVEL", default="INFO",
+        help="Logger level, default INFO. Use WARNING to show fewer messages.")
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
@@ -280,8 +286,9 @@ Examples:
     if getattr(args, "array_from_raster", None):
         fname = args.array_from_raster
         bidx = 1
-        if ":" in fname:
-            fname, bidx = fname.split(":", 1)
+        if ":" in fname and (split := fname.rindex(":")) > 1:
+            fname = args.array_from_raster[:split]
+            bidx = args.array_from_raster[(split + 1):]
             try:
                 bidx = int(bidx)
             except ValueError as err:
@@ -314,8 +321,9 @@ Examples:
                   "--array-from-vector-attribute, which are required "
                   "to provide spatial distributions of catchment polygons, "
                   "and the common index attribute name", name_nc)
-        if ":" in vector_fname:
-            vector_fname, layer = vector_fname.split(":", 1)
+        if ":" in vector_fname and (split := vector_fname.rindex(":")) > 1:
+            vector_fname = args.array_from_vector[:split]
+            layer = args.array_from_vector[(split + 1):]
 
         gpc = GridPolyConv.from_grid_vector(
             grid, vector_fname, attr, layer=layer,
@@ -343,14 +351,16 @@ Examples:
     if getattr(args, "array_from_vector", None):
         fname = args.array_from_vector
         layer = None
-        if ":" in fname:
-            fname, layer = fname.split(":", 1)
+        if ":" in fname and (split := fname.rindex(":")) > 1:
+            fname = args.array_from_vector[:split]
+            layer = args.array_from_vector[(split + 1):]
         try:
             array = grid.array_from_vector(
-                fname=fname, layer=layer,
-                attribute=args.array_from_vector_attribute,
+                fname, args.array_from_vector_attribute,
                 fill=args.array_from_vector_fill,
                 refine=args.array_from_vector_refine,
+                layer=layer,
+                all_touched=args.all_touched,
             )
             write_output(array)
             logger.info("done")
