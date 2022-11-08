@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4] - 2022-11-09
+### Added
+- Add `all_touched` option for `array_from_vector`.
+- Add Dependabot to project.
+### Fixed
+- Fix issue calculating catchment weights with time stats.
+- Fix splitting option on absolute paths with drives (e.g. "C:")
+
 ## [0.3] - 2022-09-19
 ### Added
 - Add `array_to_array` function to resample numpy arrays.
@@ -24,7 +32,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.3...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.4...HEAD
+[0.4]: https://github.com/mwtoews/gridit/compare/0.3...0.4
 [0.3]: https://github.com/mwtoews/gridit/compare/0.2...0.3
 [0.2]: https://github.com/mwtoews/gridit/compare/0.1...0.2
 [0.1]: https://github.com/mwtoews/gridit/tree/0.1
