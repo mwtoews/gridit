@@ -2,9 +2,9 @@
 import contextlib
 import importlib
 import os
-import pkg_resources
 import pytest
 import sys
+from importlib import metadata
 from pathlib import Path
 from subprocess import Popen, PIPE
 
@@ -22,11 +22,13 @@ def has_pkg(pkg):
     """Return True if Python package is available."""
     if pkg not in _has_pkg_cache:
         try:
-            _has_pkg_cache[pkg] = bool(importlib.import_module(pkg))
-        except ModuleNotFoundError:
+            metadata.distribution(pkg)
+            _has_pkg_cache[pkg] = True
+        except metadata.PackageNotFoundError:
             try:
-                _has_pkg_cache[pkg] = bool(pkg_resources.get_distribution(pkg))
-            except pkg_resources.DistributionNotFound:
+                importlib.import_module(pkg)
+                _has_pkg_cache[pkg] = True
+            except ModuleNotFoundError:
                 _has_pkg_cache[pkg] = False
 
     return _has_pkg_cache[pkg]

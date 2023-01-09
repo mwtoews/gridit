@@ -205,10 +205,9 @@ Examples:
         sys.exit(0)
 
     args = parser.parse_args()
-    print(args)
 
     logger = get_logger(__package__, args.logger)
-
+    logger.debug("parser args: %s", args)
     def error(msg, name="", show_usage=False, exit=1):
         if show_usage:
             parser.print_usage(sys.stderr)
