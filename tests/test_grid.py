@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 import pytest
+from hashlib import md5
 
 from .conftest import datadir, has_pkg, requires_pkg
 
@@ -365,15 +366,21 @@ def test_array_from_raster_all():
     assert ar.shape == (24, 18)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
-    mask_sum = ar.mask.sum()
-    if mask_sum == 170:
+    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
+    if mask_hash == "":  # todo: this was an older version?
+        assert ar.mask.sum() == 170
         np.testing.assert_almost_equal(ar.min(), 1.833, 3)
         np.testing.assert_almost_equal(ar.max(), 115.471, 3)
-    elif mask_sum == 182:
+    elif mask_hash == "d44fae9":
+        assert ar.mask.sum() == 182
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
+    elif mask_hash == "9f8b542":
+        assert ar.mask.sum() == 170
+        np.testing.assert_almost_equal(ar.min(), 1.810, 3)
+        np.testing.assert_almost_equal(ar.max(), 115.688, 3)
     else:
-        assert mask_sum is False
+        raise AssertionError((mask_hash, ar.mask.sum()))
 
 
 @requires_pkg("rasterio")
@@ -383,15 +390,21 @@ def test_array_from_raster_filter():
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
-    mask_sum = ar.mask.sum()
-    if mask_sum == 34:
+    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
+    if mask_hash == "":  # todo: this was an older version?
+        assert ar.mask.sum() == 32
         np.testing.assert_almost_equal(ar.min(), 1.833, 3)
         np.testing.assert_almost_equal(ar.max(), 101.613, 3)
-    elif mask_sum == 36:
+    elif mask_hash == "c408a2a":
+        assert ar.mask.sum() == 36
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 101.692, 3)
+    elif mask_hash == "95d7608":
+        assert ar.mask.sum() == 34
+        np.testing.assert_almost_equal(ar.min(), 1.810, 3)
+        np.testing.assert_almost_equal(ar.max(), 101.692, 3)
     else:
-        assert mask_sum is False
+        raise AssertionError((mask_hash, ar.mask.sum()))
 
 
 @requires_pkg("rasterio")
@@ -400,11 +413,19 @@ def test_array_from_raster_filter_nan():
     ar = grid.array_from_raster(mana_hk_nan_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
-    assert ar.mask.sum() == 32
-    assert np.isnan(ar.fill_value)
-    assert np.isnan(ar.data).sum() == 32
+    # there are a few different possiblities, depending on GDAL version
+    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
+    if mask_hash == "4071d94":
+        assert ar.mask.sum() == 32
+        assert np.isnan(ar.data).sum() == 32
+    elif mask_hash == "bb113c4":
+        assert ar.mask.sum() == 29
+        assert np.isnan(ar.data).sum() == 29
+    else:
+        raise AssertionError((mask_hash, ar.mask.sum()))
     np.testing.assert_almost_equal(ar.min(), 0.012, 3)
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
+    assert np.isnan(ar.fill_value)
 
 
 @requires_pkg("rasterio")
