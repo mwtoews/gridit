@@ -59,21 +59,41 @@ def test_grid_from_bbox_array_from_vector(grid_from_bbox_args):
 @requires_pkg("fiona", "matplotlib")
 def test_grid_from_bbox_array_from_vector_attribute(
         tmp_path, grid_from_bbox_args):
-    out_path = tmp_path / "out.png"
+    import fiona
+
+    out_png = tmp_path / "out.png"
+    out_shp = tmp_path / "out.shp"
     stdout, stderr, returncode = run_cli(
-        grid_from_bbox_args +
-        ["--array-from-vector", mana_shp,
-         "--array-from-vector-attribute", "K_m_d",
-         "--write-image", str(out_path)])
+        grid_from_bbox_args + [
+            "--array-from-vector", mana_shp,
+            "--array-from-vector-attribute", "K_m_d",
+            "--write-image", str(out_png),
+            "--write-vector", str(out_shp),
+            "--write-vector-attribute", "kmd",
+        ])
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
-    assert out_path.exists()
+    assert out_png.exists()
+    assert set(pth.name for pth in tmp_path.iterdir()).issuperset(
+         {"out.shp", "out.shx", "out.dbf"})
+    assert not (tmp_path / "out.prj").exists()
+    with fiona.open(out_shp) as ds:
+        assert dict(ds.schema["properties"]) == {
+            "idx": "int:4",
+            "row": "int:2",
+            "col": "int:2",
+            "kmd": "float:22.20",
+        }
+        assert len(ds) == 924
 
 
 @requires_pkg("fiona", "netcdf4", "xarray")
 def test_grid_from_vector_array_from_netcdf(tmp_path):
-    out_path = tmp_path / "out.txt"
+    import fiona
+
+    out_txt = tmp_path / "out.txt"
+    out_shp = tmp_path / "out.shp"
     args = ([
         module_name,
         "--grid-from-vector", waitaku2_shp,
@@ -82,16 +102,27 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
         "--array-from-vector-attribute", "rid",
         "--array-from-netcdf", f"{waitaku2_nc}:rid:myvar:0",
         "--time-stats", "quantile(0.75),max",
-        "--write-text", str(out_path) + ":%12.7E",
+        "--write-text", str(out_txt) + ":%12.7E",
+        "--write-vector", str(out_shp),
     ])
     with set_env(GRID_CACHE_DIR=str(tmp_path)):
         stdout, stderr, returncode = run_cli(args)
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
-    assert not out_path.exists()
-    assert set(pth.name for pth in out_path.parent.iterdir()).issuperset(
-        {"out_max.txt", "out_quantile(0.75).txt"})
+    assert not out_txt.exists()
+    assert set(pth.name for pth in tmp_path.iterdir()).issuperset(
+        {"out_max.txt", "out_quantile(0.75).txt",
+         "out.shp", "out.shx", "out.dbf", "out.prj"})
+    with fiona.open(out_shp) as ds:
+        assert dict(ds.schema["properties"]) == {
+            "idx": "int:4",
+            "row": "int:2",
+            "col": "int:2",
+            "quantile(0": "float:22.20",
+            "max": "float:22.20",
+        }
+        assert len(ds) == 4620
 
 
 @requires_pkg("flopy")

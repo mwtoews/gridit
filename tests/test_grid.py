@@ -79,6 +79,22 @@ def test_grid_transform(grid_basic):
                0.0, -10.0, 2000.0)
 
 
+def test_cell_geoms():
+    pytest.importorskip("shapely")
+    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
+    cg = grid.cell_geoms
+    assert isinstance(cg, np.ndarray)
+    assert np.issubdtype(cg.dtype, np.object_)
+    assert cg.shape == (20,)
+    assert set([g.geom_type for g in cg]) == {"Polygon"}
+    assert cg[0].exterior.coords[:][0:3] == \
+        [(1000.0, 2000.0), (1050.0, 2000.0), (1050.0, 1950.0)]
+    assert cg[1].exterior.coords[:][0:3] == \
+        [(1050.0, 2000.0), (1100.0, 2000.0), (1100.0, 1950.0)]
+    assert cg[-1].exterior.coords[:][0:3] == \
+        [(1200.0, 1850.0), (1250.0, 1850.0), (1250.0, 1800.0)]
+
+
 def test_grid_from_bbox():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25)
