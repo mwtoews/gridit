@@ -4,7 +4,7 @@ __all__ = ["shorten", "print_array"]
 
 import numpy as np
 
-from .logger import get_logger
+from .logger import logging, get_logger
 
 
 def shorten(text, width):
@@ -20,6 +20,8 @@ def print_array(ar, logger=None):
     """Print 2D array to ASCII."""
     if logger is None:
         logger = get_logger("print_array")
+    if logger.level == logging.NOTSET or logger.level > logging.INFO:
+        return
     uvals = np.unique(ar)
     if (~ar.mask).all() and len(uvals) == 1:
         logger.info("all raster values are %s", uvals[0])
@@ -59,9 +61,12 @@ def print_array(ar, logger=None):
         print(string[:-1])
     except ModuleNotFoundError:
         print(ar)
-    info = f"min: {ar.min()!s}, max: {ar.max()!s}, "
-    if len(uvals) < 8:
-        info += f"unique values: {uvals}"
+    if len(uvals) == 1:
+        info = "only 1 unique value"
     else:
-        info += f"number of unique values: {len(uvals)}"
+        info = f"{len(uvals)} unique values"
+    if len(uvals) < 8:
+        info += f": [{', '.join(str(x) for x in uvals)}]"
+    else:
+        info += f" with min: {ar.min()!s}, max: {ar.max()!s}"
     logger.info(info)
