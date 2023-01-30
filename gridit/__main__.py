@@ -51,19 +51,20 @@ def cli_main():
     examples = f"""\
 Examples:
 
-  Grid and array from vector, write PNG image:
+  Grid and array from vector, write PNG image and shapefile grid:
   $ gridit --grid-from-vector {mana_shp} --resolution 100 {cl}
       --array-from-vector {mana_shp} {cl}
       --array-from-vector-attribute=K_m_d {cl}
-      --write-image {tmpdir / "Mana_Kmd.png"}
+      --write-image {tmpdir / "Mana_Kmd.png"} {cl}
+      --write-vector /tmp/Mana_Kmd.shp
 
   Grid from bounding box, array from raster, write GeoTIFF raster:
   $ gridit --grid-from-bbox 1748600 5448800 1750400 5451200 --resolution 100 {cl}
       --array-from-raster {Path("tests/data/Mana.tif")} {cl}
       --write-raster {tmpdir / "Mana_100m.tif"}
 """  # noqa
+    waitaku2 = Path("tests/data/waitaku2")
     if has_netcdf4:
-        waitaku2 = Path("tests/data/waitaku2")
         examples += f"""\
 
   Grid from vector, array from netCDF, write text array file for each time stat:

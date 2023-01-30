@@ -48,12 +48,13 @@ Run `pytest -v`.
 
 ### Command line
 
-Grid and array from vector, write PNG image:
+Grid and array from vector, write PNG image and shapefile grid:
 ```bash
 $ gridit --grid-from-vector tests/data/Mana_polygons.shp --resolution 100 \
     --array-from-vector tests/data/Mana_polygons.shp \
     --array-from-vector-attribute=K_m_d \
-    --write-image /tmp/Mana_Kmd.png
+    --write-image /tmp/Mana_Kmd.png \
+    --write-vector /tmp/Mana_Kmd.shp
 ```
 
 Grid from bounding box, array from raster, write GeoTIFF raster:
