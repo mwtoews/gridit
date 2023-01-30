@@ -189,6 +189,14 @@ Examples:
         help="Write array text file, e.g. 'output.txt'. An optional C format "
         "specification may follow after ':', e.g. 'output.txt:%%12.7E'. "
         "The default is '%%s' for free format.")
+    write_output_group.add_argument(
+        "--write-vector", metavar="FILE[:LAYER]",
+        help="Write array to vector file, e.g., 'output.shp'.  "
+        "For multilayer datasources, use format 'datasource:layer'.")
+    write_output_group.add_argument(
+        "--write-vector-attribute", metavar="NAME",
+        help="Name of attribute to use writing vector file. "
+        "The default name is 'value'.")
 
     # General options
     parser.add_argument(
@@ -215,10 +223,11 @@ Examples:
         if name:
             m = "--" + name.replace("_", "-") + ": "
         logger.error(m + str(msg))
-        if exit:
+        if exit is not None:
             sys.exit(exit)
 
     def write_output(ar, part=None):
+        # handles only one part at a time
         orig_part = part
         if part is not None:
             part = part.replace(" ", "_")
@@ -242,7 +251,7 @@ Examples:
             try:
                 fig.savefig(fname)
             except OSError as err:
-                error(f"cannot write image: {err}", exit=0)
+                error(f"cannot write image: {err}", exit=1)
         if args.write_raster is not None:
             fname = Path(args.write_raster)
             if part:
@@ -265,7 +274,31 @@ Examples:
             try:
                 np.savetxt(fname, ar, fmt)
             except OSError as err:
-                error(f"cannot write text: {err}", exit=0)
+                error(f"cannot write text: {err}", exit=1)
+
+    def write_output_with_parts(ar):
+        if args.write_vector is not None:
+            fname = args.write_vector
+            if ":" in fname and (split := fname.rindex(":")) > 1:
+                fname = Path(args.write_vector[:split])
+                layer = args.write_vector[(split + 1):]
+            else:
+                fname = Path(fname)
+                layer = None
+            attr = args.write_vector_attribute
+            if isinstance(ar, dict):
+                if attr is None:
+                    attr = list(ar.keys())
+                else:
+                    attr = [f"{attr}_{part}" for part in ar.keys()]
+                ar = np.stack(list(ar.values()))
+            elif attr is None:
+                attr = "value"
+            logger.info("writing vector (%s): %s", attr, fname)
+            try:
+                grid.write_vector(ar, fname, layer=layer, attribute=attr)
+            except (FionaCPLE_BaseError, FionaError) as err:
+                error(f"cannot write vector: {err}", exit=1)
 
     # Process grid options
 
@@ -300,6 +333,7 @@ Examples:
         except (RasterioCPLE_BaseError, RasterioError) as err:
             error(err, "array_from_raster", exit=1)
         write_output(array)
+        write_output_with_parts(array)
         logger.info("done")
         return
 
@@ -344,6 +378,7 @@ Examples:
                     write_output(array[idx], part=f"{key} {idx}")
             else:
                 write_output(array, part=key)
+        write_output_with_parts(ar_d)
         logger.info("done")
         return
 
@@ -362,6 +397,7 @@ Examples:
                 all_touched=args.all_touched,
             )
             write_output(array)
+            write_output_with_parts(array)
             logger.info("done")
             return
         except (FionaCPLE_BaseError, FionaError) as err:

@@ -15,16 +15,6 @@ from .spatial import is_same_crs
 mask_cache = {}
 
 
-def float32_is_also_float64(val):
-    """Return True if float32 and float64 values are the same."""
-    val32 = np.float32(val)
-    val64 = np.float64(val)
-    if np.isnan([val32, val64]).all():
-        return True
-    val6432 = np.float64(val32)
-    return val64 == val6432
-
-
 def get_modflow_model(model, model_name=None, logger=None):
     """Return model object from str or Path."""
     import flopy
@@ -169,6 +159,95 @@ class Grid:
         e = -a
         b = d = 0.0
         return Affine(a, b, c, d, e, f)
+
+    @property
+    def cell_geoms(self):
+        """Return array of shapely Polygon objects for grid cells.
+
+        The flat array is indexed in C-order, such that rows and columns can
+        be evaluated using (e.g.) :func:`numpy.unravel_index`.
+
+        Returns
+        -------
+        array_like
+            Shapely Polygon geometry objects.
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If shapely is not installed.
+
+        Examples
+        --------
+        >>> from gridit import Grid
+        >>> import numpy as np
+        >>> g = Grid(10, (2, 3))
+        >>> rows, cols = np.unravel_index(np.arange(2 * 3), g.shape)
+        >>> for row, col, geom in zip(rows, cols, g.cell_geoms):
+        ...     print(f"({row}, {col}): {geom}")
+        (0, 0): POLYGON ((0 0, 10 0, 10 -10, 0 -10, 0 0))
+        (0, 1): POLYGON ((10 0, 20 0, 20 -10, 10 -10, 10 0))
+        (0, 2): POLYGON ((20 0, 30 0, 30 -10, 20 -10, 20 0))
+        (1, 0): POLYGON ((0 -10, 10 -10, 10 -20, 0 -20, 0 -10))
+        (1, 1): POLYGON ((10 -10, 20 -10, 20 -20, 10 -20, 10 -10))
+        (1, 2): POLYGON ((20 -10, 30 -10, 30 -20, 20 -20, 20 -10))
+        """
+        try:
+            import shapely
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "cell_geoms() needs shapely to be installed")
+
+        nrow, ncol = self.shape
+        ncells = nrow * ncol
+        cellids = np.arange(ncells)
+        xmin, ymax = self.top_left
+        xedge = np.arange(ncol + 1) * self.resolution + xmin
+        yedge = np.arange(nrow + 1) * -self.resolution + ymax
+        xvertices, yvertices = np.meshgrid(xedge, yedge)
+
+        # arrays of coordinates for rectangle cells
+        I, J = np.ogrid[0:nrow, 0:ncol]
+        xverts = np.stack(
+            [
+                xvertices[I, J],
+                xvertices[I, J + 1],
+                xvertices[I + 1, J + 1],
+                xvertices[I + 1, J],
+            ]
+        ).transpose((1, 2, 0))
+        yverts = np.stack(
+            [
+                yvertices[I, J],
+                yvertices[I, J + 1],
+                yvertices[I + 1, J + 1],
+                yvertices[I + 1, J],
+            ]
+        ).transpose((1, 2, 0))
+
+        try:  # shapely 2+: use vectorized version
+            geoms = shapely.polygons(
+                shapely.linearrings(
+                    xverts.flatten(),
+                    y=yverts.flatten(),
+                    indices=np.repeat(cellids, 4),
+                )
+            )
+        except AttributeError:  # shapely 1.x
+            from itertools import product
+            from shapely.geometry import Polygon
+
+            geoms_list = []
+            for i, j in product(range(nrow), range(ncol)):
+                geoms_list.append(Polygon(zip(xverts[i, j], yverts[i, j])))
+            try:
+                geoms = np.array(geoms_list)
+            except NotImplementedError:
+                # shapely<1.8
+                geoms = np.empty(len(geoms_list), dtype=object)
+                for idx, geom in enumerate(geoms_list):
+                    geoms[idx] = geom
+        return geoms
 
     @classmethod
     def from_bbox(
@@ -863,41 +942,43 @@ class Grid:
         ModuleNotFoundError
             If rasterio is not installed.
         """
-        try:
-            import rasterio
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError("array_from_vector requires rasterio")
-        if array.ndim != 2:
-            raise ValueError("array must have two-dimensions")
-        elif array.shape != self.shape:
-            raise ValueError("array must have same shape " + str(self.shape))
-        self.logger.info("writing raster file: %s", fname)
-        if driver is None:
-            from rasterio.drivers import driver_from_extension
-            driver = driver_from_extension(fname)
-        kwds = {
-            "driver": driver,
-            "width": self.shape[1],
-            "height": self.shape[0],
-            "count": 1,
-            "dtype": array.dtype,
-            "crs": self.projection,
-            "transform": self.transform,
-        }
-        if np.ma.isMA(array):
-            if array.dtype == np.float32:
-                fill_value = array.fill_value
-                if not float32_is_also_float64(fill_value):
-                    # TODO: any better way to find fill_value?
-                    fill_value = 3.28e9
-                    assert float32_is_also_float64(fill_value)
-                    assert fill_value not in array
-                    array = array.copy()
-                    array.fill_value = fill_value
-            kwds["nodata"] = array.fill_value
-            array = array.filled()
-        with rasterio.open(fname, "w", **kwds) as ds:
-            ds.write(array, 1)
+        from gridit.file import write_raster
+
+        write_raster(self, array=array, fname=fname, driver=driver)
+
+    def write_vector(
+            self, array, fname, attribute, layer=None, driver=None, **kwargs):
+        """Write array to a vector file format.
+
+        Parameters
+        ----------
+        array : array_like
+            Array to write; must have 2-dimensions that match shape.
+        fname : path-like or str
+            Output file to write.
+        attribute : str or list
+            Attribute name. If array is 2D, this is either a str or list with
+            length 1. If array is 3D, this is a list with the same lenght as
+            the first dimension.
+        layer : str or None (default)
+            Vector layer, if implemented by vector driver.
+        driver : str or None (default)
+            Vector driver. Default None will try to determine driver from
+            fname.
+        kwargs : dict, optional
+            Other driver-specific parameters that will be interpreted by the
+            OGR library as layer creation or opening options.
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If fiona and/or shapely is not installed.
+        """
+        from gridit.file import write_vector
+
+        write_vector(
+            self, array=array, fname=fname, attribute=attribute, layer=layer,
+            driver=driver, **kwargs)
 
 
 def _grid_from_bbox(bounds, resolution, buffer=0.0):
