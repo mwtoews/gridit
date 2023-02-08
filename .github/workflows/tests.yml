@@ -51,3 +51,7 @@ jobs:
         run: |
           pip install -e .[optional]
           pytest -n2 -v
+
+      - name: Run doctest
+        run: |
+          pytest -v gridit --doctest-modules

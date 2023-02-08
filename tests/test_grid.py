@@ -95,6 +95,59 @@ def test_cell_geoms():
         [(1200.0, 1850.0), (1250.0, 1850.0), (1250.0, 1800.0)]
 
 
+def test_cell_geoseries():
+    geopandas = pytest.importorskip("geopandas")
+    import pandas as pd
+
+    grid = Grid(50.0, (4, 5), (1000.0, 2000.0), projection="EPSG:3857")
+    gs = grid.cell_geoseries()
+    assert isinstance(gs, geopandas.GeoSeries)
+    assert gs.shape == (20,)
+    assert gs.area.min() == 2500.0
+    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(20))
+    assert gs.crs.to_epsg() == 3857
+
+    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
+    gs = grid.cell_geoseries(False)
+    assert gs.shape == (20,)
+    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(20) + 1)
+    assert gs.crs is None
+
+
+def test_cell_geodataframe():
+    geopandas = pytest.importorskip("geopandas")
+    import pandas as pd
+
+    grid = Grid(50.0, (4, 5), (1000.0, 2000.0), projection="EPSG:3857")
+    gdf = grid.cell_geodataframe()
+    assert isinstance(gdf, geopandas.GeoDataFrame)
+    assert gdf.shape == (20, 3)
+    assert gdf.area.min() == 2500.0
+    assert list(gdf.columns) == ["geometry", "row", "col"]
+    pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(20))
+    pd.testing.assert_series_equal(
+        gdf["row"],
+        pd.Series(np.repeat(np.arange(4), 5), name="row"))
+    pd.testing.assert_series_equal(
+        gdf["col"],
+        pd.Series(np.tile(np.arange(5), 4), name="col"))
+    assert gdf.crs.to_epsg() == 3857
+
+    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
+    gdf = grid.cell_geodataframe(False)
+    assert gdf.shape == (20, 3)
+    assert list(gdf.columns) == ["geometry", "row", "col"]
+    idx1 = pd.RangeIndex(20) + 1
+    pd.testing.assert_index_equal(gdf.index, idx1)
+    pd.testing.assert_series_equal(
+        gdf["row"],
+        pd.Series(np.repeat(np.arange(4) + 1, 5), name="row", index=idx1))
+    pd.testing.assert_series_equal(
+        gdf["col"],
+        pd.Series(np.tile(np.arange(5) + 1, 4), name="col", index=idx1))
+    assert gdf.crs is None
+
+
 def test_grid_from_bbox():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25)

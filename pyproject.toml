@@ -32,6 +32,7 @@ optional = [
     "flopy",
     "matplotlib",
     "netCDF4",
+    "geopandas",
     "rasterio",
     "scipy",
     "shapely",
