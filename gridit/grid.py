@@ -162,7 +162,7 @@ class Grid:
 
     @property
     def cell_geoms(self):
-        """Return array of shapely Polygon objects for grid cells.
+        """Array of shapely Polygon objects for grid cells.
 
         The flat array is indexed in C-order, such that rows and columns can
         be evaluated using (e.g.) :func:`numpy.unravel_index`.
@@ -248,6 +248,143 @@ class Grid:
                 for idx, geom in enumerate(geoms_list):
                     geoms[idx] = geom
         return geoms
+
+    def cell_geoseries(self, *, mask=None, zero_based=True):
+        """Return GeoSeries from cell geometries.
+
+        Parameters
+        ----------
+        mask : array_like, optional
+            Optional 2D bool array with same shape as grid, used to limit the
+            size of the series.
+        zero_based : bool, default True
+            If False, the index starts at one, otherwise it is zero.
+
+        Returns
+        -------
+        pandas.GeoSeries
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If geopandas is not installed.
+
+        See Also
+        --------
+        Grid.cell_geoms : Array of shapely Polygon objects for grid cells.
+        Grid.cell_geodataframe : Return GeoDataFrame from cell geometries.
+
+        Examples
+        --------
+        >>> from gridit import Grid
+        >>> grid = Grid(10, (2, 3), projection="EPSG:3857")
+        >>> gs = grid.cell_geoseries()
+        """
+        try:
+            import geopandas
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "cell_geoseries() needs geopandas to be installed")
+        gs = geopandas.GeoSeries(self.cell_geoms, crs=self.projection)
+        if not zero_based:
+            gs.index += 1
+        if mask is None:
+            return gs
+        if getattr(mask, "shape", None) != self.shape:
+            raise ValueError(
+                "mask must be an array the same shape as the grid")
+        if not np.issubdtype(mask.dtype, np.bool_):
+            mask = mask.astype(bool)
+        if mask.all():
+            return gs[0:0]
+        sel = ~mask.ravel()
+        if sel.all():
+            return gs
+        else:
+            return gs[sel]
+
+    def cell_geodataframe(self, *, values=None, mask=None, zero_based=True):
+        """Return GeoDataFrame from cell geometries, rows and columns.
+
+        Parameters
+        ----------
+        values : dict, optional
+            Add values to DataFrame from dict, where keys are names and values
+            are arrays the same shape as grid.
+        mask : array_like, optional
+            Optional 2D bool array with same shape as grid, used to limit the
+            size of the series.
+        zero_based : bool, default True
+            If False, the index, rows and columns start at one, otherwise they
+            start counting from zero.
+
+        Returns
+        -------
+        pandas.GeoDataFrame
+
+        Raises
+        ------
+        ModuleNotFoundError
+            If geopandas is not installed.
+
+        See Also
+        --------
+        Grid.cell_geoms : Array of shapely Polygon objects for grid cells.
+        Grid.cell_geoseries : Return pandas.GeoSeries from cell geometries.
+
+        Examples
+        --------
+        >>> from gridit import Grid
+        >>> grid = Grid(10, (2, 3), projection="EPSG:3857")
+        >>> gdf = grid.cell_geodataframe(values={"a": np.ones(grid.shape)})
+        >>> gdf[["row", "col", "a"]]
+           row  col    a
+        0    0    0  1.0
+        1    0    1  1.0
+        2    0    2  1.0
+        3    1    0  1.0
+        4    1    1  1.0
+        5    1    2  1.0
+        """
+        try:
+            import geopandas
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "cell_geoseries() needs geopandas to be installed")
+        gs = geopandas.GeoSeries(self.cell_geoms, crs=self.projection)
+        gdf = geopandas.GeoDataFrame(geometry=gs, crs=self.projection)
+        rows, cols = np.unravel_index(gs.index, self.shape)
+        gdf["row"] = rows
+        gdf["col"] = cols
+        if values is not None:
+            if not isinstance(values, dict):
+                raise ValueError("values must be dict")
+            for name, array in values.items():
+                if not isinstance(name, str):
+                    raise ValueError("key for values must be str")
+                elif getattr(array, "shape", None) != self.shape:
+                    raise ValueError(
+                        f"array {name!r} in values must have the same shape "
+                        "as the grid")
+                gdf[name] = array.ravel()
+        if not zero_based:
+            gdf.index += 1
+            gdf["row"] += 1
+            gdf["col"] += 1
+        if mask is None:
+            return gdf
+        if getattr(mask, "shape", None) != self.shape:
+            raise ValueError(
+                "mask must be an array the same shape as the grid")
+        if not np.issubdtype(mask.dtype, np.bool_):
+            mask = mask.astype(bool)
+        if mask.all():
+            return gdf[0:0]
+        sel = ~mask.ravel()
+        if sel.all():
+            return gdf
+        else:
+            return gdf[sel]
 
     @classmethod
     def from_bbox(
