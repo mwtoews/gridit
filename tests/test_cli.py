@@ -46,7 +46,7 @@ def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
     assert out_path.exists()
 
 
-@requires_pkg("fiona")
+@requires_pkg("fiona", "rasterio")
 def test_grid_from_bbox_array_from_vector(grid_from_bbox_args):
     stdout, stderr, returncode = run_cli(
         grid_from_bbox_args +

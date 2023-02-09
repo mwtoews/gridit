@@ -73,8 +73,8 @@ def flat_grid_intersect(this, other, method="vector"):
             shapely.__version__)
         if this_crs != other_crs:
             logger.warning("ignoring different CRS from grids")
-        this_geoms = this.cell_geoms
-        other_geoms = other.cell_geoms
+        this_geoms = this.cell_geoms()
+        other_geoms = other.cell_geoms()
         classic_shapely = shapely.__version__.startswith("1.")
         same_resolution = this.resolution == other.resolution
         if classic_shapely:
