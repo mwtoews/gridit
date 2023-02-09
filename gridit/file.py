@@ -178,7 +178,7 @@ def write_vector(
         driver = driver_from_extension(fname)
         grid.logger.debug("driver from extension: %s", driver)
 
-    geoms = grid.cell_geoms
+    geoms = grid.cell_geoms()
     idxs = np.arange(geoms.size)
     if np.ma.isMA(array) and array.mask.any():
         sel2d = (~array.mask).any(0)

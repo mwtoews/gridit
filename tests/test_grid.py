@@ -79,92 +79,214 @@ def test_grid_transform(grid_basic):
                0.0, -10.0, 2000.0)
 
 
+@requires_pkg("shapely")
 def test_cell_geoms():
-    pytest.importorskip("shapely")
-    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
-    cg = grid.cell_geoms
+    grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
+    first_poly_coords = [
+        (1000.0, 2000.0), (1050.0, 2000.0), (1050.0, 1950.0),
+        (1000.0, 1950.0), (1000.0, 2000.0)]
+    first_centroid = (1025.0, 1975.0)
+    one_right_centroid = (1075.0, 1975.0)
+    one_down_centroid = (1025.0, 1925.0)
+
+    # Default
+    cg = grid.cell_geoms()
     assert isinstance(cg, np.ndarray)
     assert np.issubdtype(cg.dtype, np.object_)
-    assert cg.shape == (20,)
+    assert cg.shape == (6,)
     assert set([g.geom_type for g in cg]) == {"Polygon"}
-    assert cg[0].exterior.coords[:][0:3] == \
-        [(1000.0, 2000.0), (1050.0, 2000.0), (1050.0, 1950.0)]
-    assert cg[1].exterior.coords[:][0:3] == \
-        [(1050.0, 2000.0), (1100.0, 2000.0), (1100.0, 1950.0)]
-    assert cg[-1].exterior.coords[:][0:3] == \
-        [(1200.0, 1850.0), (1250.0, 1850.0), (1250.0, 1800.0)]
+    assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
+    assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
+    assert cg[0].exterior.coords[:] == first_poly_coords
+    centroids = list(map(lambda g: g.centroid.coords[0], cg))
+    assert first_centroid == centroids[0]
+    assert one_right_centroid == centroids[1]
+    assert one_down_centroid == centroids[3]
+
+    # Fortran-style order
+    cg = grid.cell_geoms(order="F")
+    assert cg.shape == (6,)
+    assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
+    assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
+    assert cg[0].exterior.coords[:] == first_poly_coords
+    centroids = list(map(lambda g: g.centroid.coords[0], cg))
+    assert first_centroid == centroids[0]
+    assert one_down_centroid == centroids[1]
+    assert one_right_centroid == centroids[2]
+
+    # Mask with order options
+    for order in ["C", "F"]:
+        cg = grid.cell_geoms(order=order, mask=np.ones(grid.shape))
+        assert isinstance(cg, np.ndarray)
+        assert np.issubdtype(cg.dtype, np.object_)
+        assert cg.shape == (0,)
+        cg = grid.cell_geoms(mask=np.zeros(grid.shape), order=order)
+        assert cg.shape == (6,)
+        assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
+        assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
+        centroids = list(map(lambda g: g.centroid.coords[0], cg))
+        assert first_centroid == centroids[0]
+        if order == "C":
+            assert one_right_centroid == centroids[1]
+            assert one_down_centroid == centroids[3]
+        elif order == "F":
+            assert one_down_centroid == centroids[1]
+            assert one_right_centroid == centroids[2]
+        cg = grid.cell_geoms(mask=np.eye(2, 3, 1), order=order)
+        assert cg.shape == (4,)
+        centroids = list(map(lambda g: g.centroid.coords[0], cg))
+        assert first_centroid == centroids[0]
+        assert one_right_centroid not in centroids
+        if order == "C":
+            assert one_down_centroid == centroids[2]
+        elif order == "F":
+            assert one_down_centroid == centroids[1]
+        cg = grid.cell_geoms(mask=~np.eye(2, 3, -1, bool), order=order)
+        assert cg.shape == (1,)
+        centroids = list(map(lambda g: g.centroid.coords[0], cg))
+        assert centroids == [one_down_centroid]
+
+    # errors
+    with pytest.raises(ValueError, match='order must be "C" or "F"'):
+        grid.cell_geoms(order="f")
+    with pytest.raises(ValueError, match="mask must be an array the same sha"):
+        grid.cell_geoms(mask=False)
+    with pytest.raises(ValueError, match="mask must be an array the same sha"):
+        grid.cell_geoms(mask=np.ones((3, 2)))
 
 
+@requires_pkg("geopandas")
 def test_cell_geoseries():
-    geopandas = pytest.importorskip("geopandas")
+    import geopandas
     import pandas as pd
 
-    grid = Grid(50.0, (4, 5), (1000.0, 2000.0), projection="EPSG:3857")
+    grid = Grid(50.0, (2, 3), (1000.0, 2000.0), projection="EPSG:3857")
+    one_right_centroid = (1075.0, 1975.0)
+    one_down_centroid = (1025.0, 1925.0)
+
     gs = grid.cell_geoseries()
     assert isinstance(gs, geopandas.GeoSeries)
     assert gs.crs.to_epsg() == 3857
-    assert gs.shape == (20,)
+    assert gs.shape == (6,)
     assert gs.area.min() == 2500.0
-    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(20))
+    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
+    assert gs[1].centroid.coords[0] == one_right_centroid
 
-    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
-    gs = grid.cell_geoseries(zero_based=False)
+    grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
+    gs = grid.cell_geoseries(order="F")
     assert gs.crs is None
-    assert gs.shape == (20,)
-    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(20) + 1)
+    assert gs.shape == (6,)
+    pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
+    assert gs[1].centroid.coords[0] == one_down_centroid
 
-    assert grid.cell_geoseries(mask=np.ones(grid.shape)).shape == (0,)
-    assert grid.cell_geoseries(mask=np.zeros(grid.shape)).shape == (20,)
-    assert grid.cell_geoseries(mask=np.eye(*grid.shape)).shape == (16,)
+    # Mask with order options
+    for order in ["C", "F"]:
+        gs = grid.cell_geoseries(order=order, mask=np.ones(grid.shape))
+        assert gs.shape == (0,)
+        gs = grid.cell_geoseries(order=order, mask=np.zeros(grid.shape))
+        assert gs.shape == (6,)
+        pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
+        if order == "C":
+            assert gs[1].centroid.coords[0] == one_right_centroid
+        elif order == "F":
+            assert gs[1].centroid.coords[0] == one_down_centroid
+        gs = grid.cell_geoseries(order=order, mask=np.eye(2, 3, 1))
+        assert gs.shape == (4,)
+        centroids = list(gs.centroid.apply(lambda g: g.coords[0]))
+        if order == "C":
+            assert one_right_centroid not in centroids
+            assert one_down_centroid == centroids[2]
+            pd.testing.assert_index_equal(gs.index, pd.Index([0, 2, 3, 4]))
+        elif order == "F":
+            assert one_right_centroid not in centroids
+            assert one_down_centroid == centroids[1]
+            pd.testing.assert_index_equal(gs.index, pd.Index([0, 1, 3, 4]))
 
-    # errors
-    with pytest.raises(ValueError, match="mask must be an array the same sha"):
-        grid.cell_geoseries(mask=False)
-    with pytest.raises(ValueError, match="mask must be an array the same sha"):
-        grid.cell_geoseries(mask=np.ones((2, 3)))
 
-
+@requires_pkg("geopandas")
 def test_cell_geodataframe():
-    geopandas = pytest.importorskip("geopandas")
+    import geopandas
     import pandas as pd
 
-    grid = Grid(50.0, (4, 5), (1000.0, 2000.0), projection="EPSG:3857")
+    grid = Grid(50.0, (2, 3), (1000.0, 2000.0), projection="EPSG:3857")
+
     gdf = grid.cell_geodataframe()
     assert isinstance(gdf, geopandas.GeoDataFrame)
     assert gdf.crs.to_epsg() == 3857
-    assert gdf.shape == (20, 3)
+    assert gdf.shape == (6, 3)
     assert gdf.area.min() == 2500.0
     assert list(gdf.columns) == ["geometry", "row", "col"]
-    pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(20))
+    pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
     pd.testing.assert_series_equal(
         gdf["row"],
-        pd.Series(np.repeat(np.arange(4), 5), name="row"))
+        pd.Series(np.repeat(np.arange(2), 3), name="row"))
     pd.testing.assert_series_equal(
         gdf["col"],
-        pd.Series(np.tile(np.arange(5), 4), name="col"))
+        pd.Series(np.tile(np.arange(3), 2), name="col"))
 
-    grid = Grid(50.0, (4, 5), (1000.0, 2000.0))
-    gdf = grid.cell_geodataframe(zero_based=False)
+    grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
+    gdf = grid.cell_geodataframe(order="F")
     assert gdf.crs is None
-    assert gdf.shape == (20, 3)
+    assert gdf.shape == (6, 3)
     assert list(gdf.columns) == ["geometry", "row", "col"]
-    idx1 = pd.RangeIndex(20) + 1
-    pd.testing.assert_index_equal(gdf.index, idx1)
+    pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
     pd.testing.assert_series_equal(
         gdf["row"],
-        pd.Series(np.repeat(np.arange(4) + 1, 5), name="row", index=idx1))
+        pd.Series(np.tile(np.arange(2), 3), name="row"))
     pd.testing.assert_series_equal(
         gdf["col"],
-        pd.Series(np.tile(np.arange(5) + 1, 4), name="col", index=idx1))
+        pd.Series(np.repeat(np.arange(3), 2), name="col"))
 
-    ar = np.arange(20).reshape(grid.shape) * 2.0 + 1
-    gdf = grid.cell_geodataframe(values={"a": ar})
-    assert list(gdf.columns) == ["geometry", "row", "col", "a"]
-    pd.testing.assert_series_equal(gdf["a"], pd.Series(ar.ravel(), name="a"))
-
-    assert grid.cell_geodataframe(mask=np.ones(grid.shape)).shape == (0, 3)
-    assert grid.cell_geodataframe(mask=np.zeros(grid.shape)).shape == (20, 3)
-    assert grid.cell_geodataframe(mask=np.eye(*grid.shape)).shape == (16, 3)
+    ar = np.arange(6).reshape(grid.shape) * 2.0 + 1
+    # Values, mask with order options
+    for order in ["C", "F"]:
+        gdf = grid.cell_geodataframe(
+            order=order, mask=np.ones(grid.shape), values={"a": ar})
+        assert gdf.shape == (0, 4)
+        assert list(gdf.columns) == ["geometry", "row", "col", "a"]
+        gdf = grid.cell_geodataframe(
+            order=order, mask=np.zeros(grid.shape), values={"a": ar})
+        assert gdf.shape == (6, 4)
+        assert list(gdf.columns) == ["geometry", "row", "col", "a"]
+        pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
+        pd.testing.assert_series_equal(
+            gdf["a"], pd.Series(ar.ravel(order=order), name="a"))
+        if order == "C":
+            pd.testing.assert_series_equal(
+                gdf["row"],
+                pd.Series(np.repeat(np.arange(2), 3), name="row"))
+            pd.testing.assert_series_equal(
+                gdf["col"],
+                pd.Series(np.tile(np.arange(3), 2), name="col"))
+        elif order == "F":
+            pd.testing.assert_series_equal(
+                gdf["row"],
+                pd.Series(np.tile(np.arange(2), 3), name="row"))
+            pd.testing.assert_series_equal(
+                gdf["col"],
+                pd.Series(np.repeat(np.arange(3), 2), name="col"))
+        gdf = grid.cell_geodataframe(
+            order=order, mask=np.eye(2, 3, 1), values={"a": ar})
+        assert gdf.shape == (4, 4)
+        assert list(gdf.columns) == ["geometry", "row", "col", "a"]
+        if order == "C":
+            idx = pd.Index([0, 2, 3, 4])
+            pd.testing.assert_index_equal(gdf.index, idx)
+            pd.testing.assert_series_equal(
+                gdf["row"], pd.Series([0, 0, 1, 1], name="row", index=idx))
+            pd.testing.assert_series_equal(
+                gdf["col"], pd.Series([0, 2, 0, 1], name="col", index=idx))
+            pd.testing.assert_series_equal(
+                gdf["a"], pd.Series([1.0, 5.0, 7.0, 9.0], name="a", index=idx))
+        elif order == "F":
+            idx = pd.Index([0, 1, 3, 4])
+            pd.testing.assert_index_equal(gdf.index, idx)
+            pd.testing.assert_series_equal(
+                gdf["row"], pd.Series([0, 1, 1, 0], name="row", index=idx))
+            pd.testing.assert_series_equal(
+                gdf["col"], pd.Series([0, 0, 1, 2], name="col", index=idx))
+            pd.testing.assert_series_equal(
+                gdf["a"], pd.Series([1.0, 7.0, 9.0, 5.0], name="a", index=idx))
 
     # errors
     with pytest.raises(ValueError, match="values must be dict"):
@@ -174,9 +296,7 @@ def test_cell_geodataframe():
     with pytest.raises(ValueError, match="key for values must be str"):
         grid.cell_geodataframe(values={False: np.ones(grid.shape)})
     with pytest.raises(ValueError, match="array 'a' in values must have the"):
-        grid.cell_geodataframe(values={"a": np.ones((2, 3))})
-    with pytest.raises(ValueError, match="mask must be an array the same sha"):
-        grid.cell_geodataframe(mask=np.ones((2, 3)))
+        grid.cell_geodataframe(values={"a": np.ones((3, 2))})
 
 
 def test_grid_from_bbox():

@@ -160,12 +160,20 @@ class Grid:
         b = d = 0.0
         return Affine(a, b, c, d, e, f)
 
-    @property
-    def cell_geoms(self):
-        """Array of shapely Polygon objects for grid cells.
+    def cell_geoms(self, *, mask=None, order="C"):
+        """Returns array of shapely Polygon objects for grid cells.
 
         The flat array is indexed in C-order, such that rows and columns can
         be evaluated using (e.g.) :func:`numpy.unravel_index`.
+
+        Parameters
+        ----------
+        mask : array_like, optional
+            Optional 2D bool array with same shape as grid, used to limit the
+            size of the array.
+        order : {"C", "F"}, optional
+            C-style indexes are row-major, and Fortran-style are column-major.
+            See :meth:`numpy.ravel` for more information.
 
         Returns
         -------
@@ -183,7 +191,7 @@ class Grid:
         >>> import numpy as np
         >>> g = Grid(10, (2, 3))
         >>> rows, cols = np.unravel_index(np.arange(2 * 3), g.shape)
-        >>> for row, col, geom in zip(rows, cols, g.cell_geoms):
+        >>> for row, col, geom in zip(rows, cols, g.cell_geoms()):
         ...     print(f"({row}, {col}): {geom}")
         (0, 0): POLYGON ((0 0, 10 0, 10 -10, 0 -10, 0 0))
         (0, 1): POLYGON ((10 0, 20 0, 20 -10, 10 -10, 10 0))
@@ -197,10 +205,19 @@ class Grid:
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "cell_geoms() needs shapely to be installed")
+        if mask is not None:
+            if getattr(mask, "shape", None) != self.shape:
+                raise ValueError(
+                    "mask must be an array the same shape as the grid")
+            if not np.issubdtype(mask.dtype, np.bool_):
+                mask = mask.astype(bool)
+            if mask.all():
+                return np.empty((0,), dtype=object)
+            sel = ~mask.ravel(order=order)
+            if sel.all():
+                mask = None
 
         nrow, ncol = self.shape
-        ncells = nrow * ncol
-        cellids = np.arange(ncells)
         xmin, ymax = self.top_left
         xedge = np.arange(ncol + 1) * self.resolution + xmin
         yedge = np.arange(nrow + 1) * -self.resolution + ymax
@@ -215,7 +232,7 @@ class Grid:
                 xvertices[I + 1, J + 1],
                 xvertices[I + 1, J],
             ]
-        ).transpose((1, 2, 0))
+        )
         yverts = np.stack(
             [
                 yvertices[I, J],
@@ -223,22 +240,50 @@ class Grid:
                 yvertices[I + 1, J + 1],
                 yvertices[I + 1, J],
             ]
-        ).transpose((1, 2, 0))
+        )
+        if order == "C":
+            xverts = xverts.transpose((1, 2, 0))
+            yverts = yverts.transpose((1, 2, 0))
+        elif order == "F":
+            pass
+        else:
+            raise ValueError('order must be "C" or "F"')
 
         try:  # shapely 2+: use vectorized version
-            geoms = shapely.polygons(
-                shapely.linearrings(
-                    xverts.flatten(),
-                    y=yverts.flatten(),
-                    indices=np.repeat(cellids, 4),
+            if mask is None:
+                rings = shapely.linearrings(
+                    xverts.ravel(order=order),
+                    y=yverts.ravel(order=order),
+                    indices=np.repeat(np.arange(nrow * ncol), 4),
                 )
-            )
+            else:
+                selrep = np.repeat(sel, 4)
+                rings = shapely.linearrings(
+                    xverts.ravel(order=order)[selrep],
+                    y=yverts.ravel(order=order)[selrep],
+                    indices=np.repeat(np.arange(sel.sum()), 4),
+                )
+            geoms = shapely.polygons(rings)
         except AttributeError:  # shapely 1.x
             from itertools import product
             from shapely.geometry import Polygon
 
             geoms_list = []
-            for i, j in product(range(nrow), range(ncol)):
+            if order == "C":
+                swap = False
+                prod_iter = product(range(nrow), range(ncol))
+            elif order == "F":
+                swap = True
+                prod_iter = product(range(ncol), range(nrow))
+                xverts = xverts.transpose((1, 2, 0))
+                yverts = yverts.transpose((1, 2, 0))
+            for idx, ij in enumerate(prod_iter):
+                if mask is not None and not sel[idx]:
+                    continue
+                if swap:
+                    j, i = ij
+                else:
+                    i, j = ij
                 geoms_list.append(Polygon(zip(xverts[i, j], yverts[i, j])))
             try:
                 geoms = np.array(geoms_list)
@@ -249,7 +294,7 @@ class Grid:
                     geoms[idx] = geom
         return geoms
 
-    def cell_geoseries(self, *, mask=None, zero_based=True):
+    def cell_geoseries(self, *, mask=None, order="C"):
         """Return GeoSeries from cell geometries.
 
         Parameters
@@ -257,8 +302,9 @@ class Grid:
         mask : array_like, optional
             Optional 2D bool array with same shape as grid, used to limit the
             size of the series.
-        zero_based : bool, default True
-            If False, the index starts at one, otherwise it is zero.
+        order : {"C", "F"}, optional
+            C-style indexes are row-major, and Fortran-style are column-major.
+            See :meth:`numpy.ravel` for more information.
 
         Returns
         -------
@@ -271,7 +317,7 @@ class Grid:
 
         See Also
         --------
-        Grid.cell_geoms : Array of shapely Polygon objects for grid cells.
+        Grid.cell_geoms : Return array of shapely Polygons for grid cells.
         Grid.cell_geodataframe : Return GeoDataFrame from cell geometries.
 
         Examples
@@ -285,25 +331,19 @@ class Grid:
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
                 "cell_geoseries() needs geopandas to be installed")
-        gs = geopandas.GeoSeries(self.cell_geoms, crs=self.projection)
-        if not zero_based:
-            gs.index += 1
-        if mask is None:
-            return gs
-        if getattr(mask, "shape", None) != self.shape:
-            raise ValueError(
-                "mask must be an array the same shape as the grid")
-        if not np.issubdtype(mask.dtype, np.bool_):
-            mask = mask.astype(bool)
-        if mask.all():
-            return gs[0:0]
-        sel = ~mask.ravel()
-        if sel.all():
-            return gs
-        else:
-            return gs[sel]
+        geoms = self.cell_geoms(mask=mask, order=order)
+        gs = geopandas.GeoSeries(geoms, crs=self.projection)
+        if mask is not None:
+            if not np.issubdtype(mask.dtype, np.bool_):
+                mask = mask.astype(bool)
+            if mask.all():
+                return gs[0:0]
+            sel = ~mask.ravel(order=order)
+            if not sel.all():
+                gs.index = np.where(sel)[0]
+        return gs
 
-    def cell_geodataframe(self, *, values=None, mask=None, zero_based=True):
+    def cell_geodataframe(self, *, values=None, mask=None, order="C"):
         """Return GeoDataFrame from cell geometries, rows and columns.
 
         Parameters
@@ -314,9 +354,9 @@ class Grid:
         mask : array_like, optional
             Optional 2D bool array with same shape as grid, used to limit the
             size of the series.
-        zero_based : bool, default True
-            If False, the index, rows and columns start at one, otherwise they
-            start counting from zero.
+        order : {"C", "F"}, optional
+            C-style indexes are row-major, and Fortran-style are column-major.
+            See :meth:`numpy.ravel` for more information.
 
         Returns
         -------
@@ -329,7 +369,7 @@ class Grid:
 
         See Also
         --------
-        Grid.cell_geoms : Array of shapely Polygon objects for grid cells.
+        Grid.cell_geoms : Return array of shapely Polygons for grid cells.
         Grid.cell_geoseries : Return pandas.GeoSeries from cell geometries.
 
         Examples
@@ -350,10 +390,18 @@ class Grid:
             import geopandas
         except ModuleNotFoundError:
             raise ModuleNotFoundError(
-                "cell_geoseries() needs geopandas to be installed")
-        gs = geopandas.GeoSeries(self.cell_geoms, crs=self.projection)
+                "cell_geodataframe() needs geopandas to be installed")
+        gs = self.cell_geoseries(mask=mask, order=order)
         gdf = geopandas.GeoDataFrame(geometry=gs, crs=self.projection)
-        rows, cols = np.unravel_index(gs.index, self.shape)
+        if mask is not None:
+            if not np.issubdtype(mask.dtype, np.bool_):
+                mask = mask.astype(bool)
+            sel = ~mask.ravel(order=order)
+            if not sel.all():
+                gdf.index = np.where(sel)[0]
+        else:
+            sel = np.ones(len(gdf), bool)
+        rows, cols = np.unravel_index(gs.index, self.shape, order=order)
         gdf["row"] = rows
         gdf["col"] = cols
         if values is not None:
@@ -366,25 +414,8 @@ class Grid:
                     raise ValueError(
                         f"array {name!r} in values must have the same shape "
                         "as the grid")
-                gdf[name] = array.ravel()
-        if not zero_based:
-            gdf.index += 1
-            gdf["row"] += 1
-            gdf["col"] += 1
-        if mask is None:
-            return gdf
-        if getattr(mask, "shape", None) != self.shape:
-            raise ValueError(
-                "mask must be an array the same shape as the grid")
-        if not np.issubdtype(mask.dtype, np.bool_):
-            mask = mask.astype(bool)
-        if mask.all():
-            return gdf[0:0]
-        sel = ~mask.ravel()
-        if sel.all():
-            return gdf
-        else:
-            return gdf[sel]
+                gdf[name] = array.ravel(order=order)[sel]
+        return gdf
 
     @classmethod
     def from_bbox(
