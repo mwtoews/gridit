@@ -3,7 +3,7 @@ import re
 
 import numpy as np
 
-from .logger import get_logger
+from gridit.logger import get_logger
 
 __all__ = [
     "is_same_crs",

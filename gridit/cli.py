@@ -4,7 +4,7 @@ __all__ = []
 
 from importlib.util import find_spec
 
-from .grid import Grid
+from gridit.grid import Grid
 
 has_flopy = find_spec("flopy") is not None
 

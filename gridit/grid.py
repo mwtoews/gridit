@@ -6,9 +6,9 @@ import numpy as np
 from math import floor, ceil
 from pathlib import Path
 
-from .display import shorten
-from .logger import get_logger
-from .spatial import is_same_crs
+from gridit.display import shorten
+from gridit.logger import get_logger
+from gridit.spatial import is_same_crs
 
 mask_cache = {}
 

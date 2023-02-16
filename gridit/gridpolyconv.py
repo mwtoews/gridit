@@ -9,10 +9,10 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from .display import shorten
-from .grid import Grid
-from .logger import get_logger, disable_logger
-from .spatial import is_same_crs
+from gridit.display import shorten
+from gridit.grid import Grid
+from gridit.logger import get_logger, disable_logger
+from gridit.spatial import is_same_crs
 
 
 def month_number(txt):
