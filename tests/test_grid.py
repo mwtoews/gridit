@@ -14,7 +14,6 @@ from gridit import Grid
 mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
 mana_hk_nan_path = datadir / "Mana_hk_nan.tif"
-modflow_dir = datadir / "modflow"
 
 
 @pytest.fixture
@@ -366,87 +365,6 @@ def test_grid_from_vector_all(grid_from_vector_all):
     grid = grid_from_vector_all
     expected = Grid(100.0, (24, 18), (1748600.0, 5451200.0), grid.projection)
     assert grid == expected
-
-
-@requires_pkg("flopy")
-def test_get_modflow_model():
-    import flopy
-    from gridit.grid import get_modflow_model
-
-    m = get_modflow_model(modflow_dir / "h.nam")
-    assert isinstance(m, flopy.modflow.Modflow)
-    assert m.get_package_list() == ["DIS", "BAS6"]
-
-    m = get_modflow_model(m)
-    assert isinstance(m, flopy.modflow.Modflow)
-
-    with pytest.warns(UserWarning):
-        m = get_modflow_model(modflow_dir)
-        assert isinstance(m, flopy.mf6.MFModel)
-
-    with pytest.warns(UserWarning):
-        m = get_modflow_model(modflow_dir / "mfsim.nam")
-        assert isinstance(m, flopy.mf6.MFModel)
-
-    m = get_modflow_model(modflow_dir / "mfsim.nam", "h6")
-    assert isinstance(m, flopy.mf6.MFModel)
-    assert m.get_package_list() == ["DIS"]
-    assert hasattr(m, "tdis")  # check hack
-
-    m = get_modflow_model(m)
-    assert isinstance(m, flopy.mf6.MFModel)
-
-
-@requires_pkg("flopy")
-def test_grid_from_modflow_classic():
-    grid = Grid.from_modflow(modflow_dir / "h.nam")
-    expected = Grid(1000.0, (18, 17), (1802000.0, 5879000.0), "EPSG:2193")
-    assert grid == expected
-    assert grid.projection == "EPSG:2193"
-
-
-@requires_pkg("flopy")
-def test_grid_from_modflow_6(caplog):
-    expected = Grid(1000.0, (18, 17), (1802000.0, 5879000.0))
-
-    with caplog.at_level(logging.WARNING):
-        grid = Grid.from_modflow(modflow_dir / "mfsim.nam", "h6")
-        assert len(caplog.messages) == 0
-        assert grid == expected
-        assert grid.projection == ""
-
-    grid = Grid.from_modflow(modflow_dir / "mfsim.nam", "h6", "EPSG:2193")
-    # assert grid == expected
-    assert grid.projection == "EPSG:2193"
-
-    with caplog.at_level(logging.WARNING):
-        grid = Grid.from_modflow(modflow_dir / "mfsim.nam")
-        assert "a model name should be specified" in caplog.messages[-1]
-        assert grid == expected
-        assert grid.projection == ""
-
-    # also rasises logger warning
-    grid = Grid.from_modflow(modflow_dir)
-    assert grid == expected
-
-
-@requires_pkg("flopy")
-def test_mask_from_modflow_classic():
-    grid = Grid.from_modflow(modflow_dir)
-    mask = grid.mask_from_modflow(modflow_dir)
-    assert mask.sum() == 128
-    mask = grid.mask_from_modflow(modflow_dir / "mfsim.nam")
-    assert mask.sum() == 128
-    grid = Grid.from_modflow(modflow_dir)
-    mask = grid.mask_from_modflow(modflow_dir / "mfsim.nam", "h6")
-    assert mask.sum() == 128
-
-
-@requires_pkg("flopy")
-def test_mask_from_modflow_6():
-    grid = Grid.from_modflow(modflow_dir / "h.nam")
-    mask = grid.mask_from_modflow(modflow_dir / "h.nam")
-    assert mask.sum() == 128
 
 
 @requires_pkg("fiona", "rasterio")
