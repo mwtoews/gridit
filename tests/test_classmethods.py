@@ -58,14 +58,6 @@ def test_grid_from_raster_resolution_buffer():
     assert grid == expected
 
 
-@requires_pkg("rasterio")
-def test_mask_from_raster(grid_from_raster):
-    mask = grid_from_raster.mask_from_raster(mana_dem_path)
-    assert mask.shape == (278, 209)
-    assert mask.dtype == "bool"
-    assert mask.sum() == 23782
-
-
 @pytest.fixture
 def grid_from_vector_all():
     return Grid.from_vector(mana_polygons_path, 100)
@@ -76,22 +68,6 @@ def test_grid_from_vector_all(grid_from_vector_all):
     grid = grid_from_vector_all
     expected = Grid(100.0, (24, 18), (1748600.0, 5451200.0), grid.projection)
     assert grid == expected
-
-
-@requires_pkg("fiona", "rasterio")
-def test_mask_from_vector_all(grid_from_vector_all):
-    mask = grid_from_vector_all.mask_from_vector(mana_polygons_path)
-    assert mask.shape == (24, 18)
-    assert mask.dtype == "bool"
-    assert mask.sum() == 193
-
-
-@requires_pkg("fiona", "rasterio")
-def test_mask_from_vector_layer(grid_from_vector_all):
-    mask = grid_from_vector_all.mask_from_vector(datadir, "mana_polygons")
-    assert mask.shape == (24, 18)
-    assert mask.dtype == "bool"
-    assert mask.sum() == 193
 
 
 @pytest.fixture

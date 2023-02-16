@@ -8,7 +8,8 @@ try:
 except ImportError:
     __version__ = None
 
-__all__ = ["Grid", "GridPolyConv"]
+__all__ = ["Grid", "GridPolyConv", "logger"]
 
+from gridit import logger
 from gridit.grid import Grid
 from gridit.gridpolyconv import GridPolyConv

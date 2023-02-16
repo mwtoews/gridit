@@ -98,7 +98,7 @@ def fiona_property_type(ar):
         scale = max(len(str(ar.min())), len(str(ar.max())))
         return f"int:{scale}"
     elif np.issubdtype(ar.dtype, np.bool_):
-        return f"int:1"
+        return "int:1"
     elif np.issubdtype(ar.dtype, np.str_) or np.issubdtype(ar.dtype, np.bytes_):
         scale = np.char.str_len(ar).max()
         return f"str:{scale}"

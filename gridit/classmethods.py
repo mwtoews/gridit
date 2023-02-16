@@ -69,8 +69,8 @@ def from_bbox(
         Logger to show messages.
     """
     if logger is None:
-        logger = get_logger(cls.__class__.__name__)
-    logger.info("creating grid info a bounding box")
+        logger = get_logger(cls.__name__)
+    logger.info("creating from a bounding box")
     bounds = minx, miny, maxx, maxy
     shape, top_left = get_shape_top_left(bounds, resolution, buffer)
     return cls(resolution=resolution, shape=shape, top_left=top_left,
@@ -106,8 +106,8 @@ def from_raster(
     except ModuleNotFoundError:
         raise ModuleNotFoundError("from_raster requires rasterio")
     if logger is None:
-        logger = get_logger(cls.__class__.__name__)
-    logger.info("reading grid info from raster: %s", fname)
+        logger = get_logger(cls.__name__)
+    logger.info("creating from raster: %s", fname)
     with rasterio.open(fname, "r") as ds:
         t = ds.transform
         shape = ds.shape
@@ -162,9 +162,8 @@ def from_vector(
     except ModuleNotFoundError:
         raise ModuleNotFoundError("from_vector requires fiona")
     if logger is None:
-        logger = get_logger(cls.__class__.__name__)
-    logger.info("creating grid info a bounding box")
-    logger.info("reading grid info from vector source: %s", fname)
+        logger = get_logger(cls.__name__)
+    logger.info("reading from a vector source: %s", fname)
     if layer is None:
         layers = fiona.listlayers(fname)
         if len(layers) > 1:

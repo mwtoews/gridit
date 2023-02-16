@@ -427,3 +427,27 @@ def test_array_from_vector_different_projection():
     assert ar.mask.sum() == 950
     ar = grid.array_from_vector(mana_polygons_path, "K_m_d", all_touched=True)
     assert ar.mask.sum() == 873
+
+
+@requires_pkg("fiona", "rasterio")
+def test_mask_from_vector_layer(grid_from_vector_all):
+    mask = grid_from_vector_all.mask_from_vector(datadir, "mana_polygons")
+    assert mask.shape == (24, 18)
+    assert mask.dtype == "bool"
+    assert mask.sum() == 193
+
+
+@requires_pkg("rasterio")
+def test_mask_from_raster(grid_from_raster):
+    mask = grid_from_raster.mask_from_raster(mana_dem_path)
+    assert mask.shape == (278, 209)
+    assert mask.dtype == "bool"
+    assert mask.sum() == 23782
+
+
+@requires_pkg("fiona", "rasterio")
+def test_mask_from_vector_all(grid_from_vector_all):
+    mask = grid_from_vector_all.mask_from_vector(mana_polygons_path)
+    assert mask.shape == (24, 18)
+    assert mask.dtype == "bool"
+    assert mask.sum() == 193

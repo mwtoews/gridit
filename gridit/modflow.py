@@ -88,8 +88,8 @@ def from_modflow(
     if find_spec("flopy") is None:
         raise ModuleNotFoundError("from_modflow requires flopy")
     if logger is None:
-        logger = get_logger(cls.__class__.__name__)
-    logger.info("creating grid info from a MODFLOW model: %s", type(model))
+        logger = get_logger(cls.__name__)
+    logger.info("creating from a MODFLOW model: %s", type(model))
     mask_cache_key = (repr(model), model_name)
     model = get_modflow_model(model, model_name, logger)
     modelgrid = model.modelgrid
