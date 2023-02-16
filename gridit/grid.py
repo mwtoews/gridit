@@ -3,7 +3,6 @@
 __all__ = ["Grid"]
 
 import numpy as np
-from math import floor, ceil
 from pathlib import Path
 
 from gridit.display import shorten
@@ -35,6 +34,7 @@ class Grid:
         Affine transformation object; requires affine.
 
     """
+    from gridit.classmethods import from_bbox, from_raster, from_vector
     from gridit.modflow import from_modflow, mask_from_modflow
 
     def __init__(
@@ -362,163 +362,6 @@ class Grid:
                         "as the grid")
                 gdf[name] = array.ravel(order=order)[sel]
         return gdf
-
-    @classmethod
-    def from_bbox(
-            cls, minx: float, miny: float, maxx: float, maxy: float,
-            resolution: float, buffer: float = 0.0, projection: str = "",
-            logger=None):
-        """Create grid information from a bounding box and resolution.
-
-        Bounds are "snapped" to a multiple of the resolution.
-
-        Parameters
-        ----------
-        fname : str
-            Input file, such as a shapefile.
-        minx, miny, maxx, maxy : float
-            Extents of a bounding box.
-        resolution : float
-            A grid resolution, e.g. 250.0 for 250m x 250m
-        buffer : float, default 0.0
-            Add buffer to extents of bounding box.
-        projection : str, default ""
-            Coordinate reference system described as a string either as (e.g.)
-            EPSG:2193 or a WKT string.
-        logger : logging.Logger, optional
-            Logger to show messages.
-        """
-        if logger is None:
-            logger = get_logger(cls.__class__.__name__)
-        logger.info("creating grid info a bounding box")
-        bounds = minx, miny, maxx, maxy
-        shape, top_left = _grid_from_bbox(bounds, resolution, buffer)
-        return cls(resolution=resolution, shape=shape, top_left=top_left,
-                   projection=projection, logger=logger)
-
-    @classmethod
-    def from_raster(
-            cls, fname: str, resolution: float = None, buffer: float = 0.0,
-            logger=None):
-        """Fetch grid information from a raster.
-
-        Parameters
-        ----------
-        fname : str
-            Input file, such as a shapefile.
-        resolution : float, optional
-            An optional grid resolution. If not specified, the default
-            resolution is from the raster. If specified, the bounds may be
-            expanded and "snapped" to a multiple of the resolution.
-        buffer : float, default 0.0.
-            Add buffer to extents of raster.
-        logger : logging.Logger, optional
-            Logger to show messages.
-
-        Raises
-        ------
-        ModuleNotFoundError
-            If rasterio is not installed.
-        """
-        try:
-            import rasterio
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError("from_raster requires rasterio")
-        if logger is None:
-            logger = get_logger(cls.__class__.__name__)
-        logger.info("reading grid info from raster: %s", fname)
-        with rasterio.open(fname, "r") as ds:
-            t = ds.transform
-            shape = ds.shape
-            projection = ds.crs.to_wkt()
-        if t.e != -t.a:
-            logger.error("expected e == -a, but %r != %r", t.e, t.a)
-        if t.b != 0 or t.d != 0:
-            logger.error("expected b == d == 0.0, but %r and %r", t.b, t.d)
-        if resolution is not None or resolution != t.a or buffer > 0:
-            if resolution is None:
-                resolution = t.a
-            ny, nx = shape
-            bounds = t.c, t.f + ny * t.e, t.c + nx * t.a, t.f
-            shape, top_left = _grid_from_bbox(bounds, resolution, buffer)
-        else:
-            resolution = t.a
-            top_left = t.c, t.f
-        return cls(resolution=resolution, shape=shape, top_left=top_left,
-                   projection=projection, logger=logger)
-
-    @classmethod
-    def from_vector(
-            cls, fname: str, resolution: float, filter: dict = None,
-            buffer: float = 0.0, layer=None, logger=None):
-        """Create grid information from a vector source.
-
-        Bounds are "snapped" to a multiple of the resolution.
-
-        Parameters
-        ----------
-        fname : str
-            Input file, such as a shapefile.
-        resolution : float
-            A grid resolution, e.g. 250.0 for 250m x 250m
-        filter : dict, optional
-            Property filter criteria.
-        buffer : float, default 0.0
-            Add buffer to extents of polygon.
-        layer : int or str, default None
-            The integer index or name of a layer in a multi-layer dataset.
-        logger : logging.Logger, optional
-            Logger to show messages.
-
-        Raises
-        ------
-        ModuleNotFoundError
-            If fiona is not installed.
-        """
-        try:
-            import fiona
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError("from_vector requires fiona")
-        if logger is None:
-            logger = get_logger(cls.__class__.__name__)
-        logger.info("creating grid info a bounding box")
-        logger.info("reading grid info from vector source: %s", fname)
-        if layer is None:
-            layers = fiona.listlayers(fname)
-            if len(layers) > 1:
-                logger.warning(
-                    "choosing the first of %d layers: %s", len(layers), layers)
-                layer = layers[0]
-        with fiona.open(fname, "r", layer=layer) as ds:
-            projection = ds.crs_wkt
-            if filter:
-                found = False
-                for f in ds:
-                    r = []
-                    for k in filter.keys():
-                        r.append(f["properties"].get(k, "") == filter[k])
-                    if len(r) > 0 and all(r):
-                        found = True
-                        break
-                if not found:
-                    raise ValueError(
-                        f"could not find {filter} in {fname}")
-                geom_type = f["geometry"]["type"]
-                if geom_type == "Polygon":
-                    ar = np.array(f["geometry"]["coordinates"])
-                    assert ar.ndim == 3
-                    assert ar.shape[2] in (2, 3)
-                    xcs = ar[:, :, 0]
-                    ycs = ar[:, :, 1]
-                else:
-                    raise NotImplementedError(
-                        f"unexpected geometry type {geom_type}")
-                bounds = xcs.min(), ycs.min(), xcs.max(), ycs.max()
-            else:  # full shapefile bounds
-                bounds = ds.bounds
-        shape, top_left = _grid_from_bbox(bounds, resolution, buffer)
-        return cls(resolution=resolution, shape=shape, top_left=top_left,
-                   projection=projection, logger=logger)
 
     def array_from_array(self, grid, array, resampling=None):
         """Return array from a different grid and array.
@@ -1002,40 +845,3 @@ class Grid:
         write_vector(
             self, array=array, fname=fname, attribute=attribute, layer=layer,
             driver=driver, **kwargs)
-
-
-def _grid_from_bbox(bounds, resolution, buffer=0.0):
-    minx, miny, maxx, maxy = bounds
-    if not (minx < maxx):
-        raise ValueError("'minx' must be less than 'maxx'")
-    elif not (miny < maxy):
-        raise ValueError("'miny' must be less than 'maxy'")
-    elif resolution <= 0:
-        raise ValueError("'resolution' must be greater than zero")
-    elif buffer < 0:
-        raise ValueError("'buffer' must be zero or greater")
-    if buffer > 0.0:
-        minx -= buffer
-        miny -= buffer
-        maxx += buffer
-        maxy += buffer
-    dx = dy = resolution
-    if buffer > 0.0:
-        minx = dx * round(minx / dx)
-        miny = dy * round(miny / dy)
-        maxx = dx * round(maxx / dx)
-        maxy = dy * round(maxy / dy)
-    else:
-        minx = dx * floor(minx / dx)
-        miny = dy * floor(miny / dy)
-        maxx = dx * ceil(maxx / dx)
-        maxy = dy * ceil(maxy / dy)
-    lenx = maxx - minx
-    leny = maxy - miny
-    assert lenx % dx == 0.0
-    assert leny % dy == 0.0
-    nx = int(lenx / dx)
-    ny = int(leny / dy)
-    shape = ny, nx
-    top_left = (minx, maxy)
-    return shape, top_left
