@@ -5,7 +5,7 @@
 
 ## Description
 
-Gridit provides spatial tools to translate raster or vector polygon data to regular grids.
+Gridit provides spatial tools to translate raster or vector geometry data to regular grids.
 
 ## Installation
 

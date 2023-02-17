@@ -230,31 +230,38 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
 
 
 def array_from_vector(
-        self, fname: str, attribute: str, *, fill=0, refine: int = 1,
-        layer=None, all_touched=False):
+        self, fname: str, *, layer=None, attribute=None, calc=None,
+        fill=0, refine: int = 1, all_touched=False):
     """Return array from vector source data aligned to grid info.
 
     The datatype is inferred from the attribute values.
 
     Parameters
     ----------
-    fname : str
-        Polygon vector source data to create array from.
-    attribute : str or None
-        Name of attribute to rasterize. If None, a boolean result where
-        polygon features are located is returned.
+    fname : str or PathLike
+        Vector source data to create array from.
+    layer : int or str, default None
+        The integer index or name of a layer in a multi-layer dataset.
+    attribute : str, optional
+        Name of attribute to rasterize.
+        This option is mutually exclusive with ``calc``.
+    calc : str, optional
+        Not implemented.
+        This option is mutually exclusive with ``attribute``.
     fill : float or int, default 0
         Fill value, only used where polygon does not cover unmasked grid.
     refine : int, default 1
         If greater than 1, refine each dimension by a factor as a
         pre-processing step to approximate more details from the vector
-        file to the gridded result.
-    layer : int or str, default None
-        The integer index or name of a layer in a multi-layer dataset.
+        file to the gridded result. Ignored for points.
     all_touched : bool, defalt False
-        If True, all grid cells touched by geometries will be burned in.
-        Default False will only burn in cells whose center is within the
-        polygon.
+        If True, all grid cells touched by polygon or line geometries will be
+        updated. Default False will only update cells whose center is within
+        the polygon or line is on the render path. Ignored for points.
+
+    Notes
+    -----
+    TODO.
 
     Returns
     -------
@@ -278,6 +285,8 @@ def array_from_vector(
             "array_from_vector requires fiona and rasterio")
     grid_transform = self.transform
     grid_crs = self.projection
+    if calc is not None:
+        raise NotImplementedError("calc does nothing for now")
     use_refine = refine > 1
     if refine < 1:
         raise ValueError("refine must be >= 1")
@@ -289,9 +298,7 @@ def array_from_vector(
                 "choosing the first of %d layers: %s", len(layers), layers)
             layer = layers[0]
     with fiona.open(fname, "r", layer=layer) as ds:
-        if ds.schema["geometry"] != "Polygon":
-            self.logger.warning(
-                "expected 'Polygon', found %r", ds.schema["geometry"])
+        self.logger.info("processing %s geometry data", ds.schema["geometry"])
         ds_crs = ds.crs_wkt
         do_transform = False
         if not grid_crs:
@@ -423,13 +430,13 @@ def array_from_vector(
     return ar
 
 
-def mask_from_vector(self, fname, layer=None):
+def mask_from_vector(self, fname, *, layer=None):
     """Return a mask array from a vector source aligned to grid info.
 
     Parameters
     ----------
     fname : str
-        Polygon vector source data to evaluate mask.
+        Vector source data to evaluate mask.
     layer : int or str, default None
         The integer index or name of a layer in a multi-layer dataset.
 
@@ -437,5 +444,5 @@ def mask_from_vector(self, fname, layer=None):
     -------
     np.array
     """
-    ar = self.array_from_vector(fname, None, layer=layer)
+    ar = self.array_from_vector(fname, layer=layer)
     return ~ar.data.astype(bool)
