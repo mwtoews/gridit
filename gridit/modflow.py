@@ -1,6 +1,5 @@
 """Modflow methods."""
 
-import numpy as np
 from importlib.util import find_spec
 from pathlib import Path
 from warnings import warn
@@ -124,6 +123,7 @@ def from_modflow(
     return cls(
         resolution=delr, shape=modelgrid.top.shape, top_left=top_left,
         projection=projection, logger=logger)
+
 
 def mask_from_modflow(self, model, model_name=None):
     """Return a mask array from a MODFLOW model, based on IBOUND/IDOMAIN.

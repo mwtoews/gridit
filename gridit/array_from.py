@@ -2,7 +2,7 @@
 import numpy as np
 
 from gridit.display import shorten
-from gridit.logger import get_logger
+from gridit.file import float32_is_also_float64
 from gridit.spatial import is_same_crs
 
 
