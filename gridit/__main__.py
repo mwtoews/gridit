@@ -25,9 +25,9 @@ try:
 except ModuleNotFoundError:
     plt = None
 
-from . import cli, GridPolyConv
-from .display import print_array
-from .logger import get_logger
+from gridit import cli, GridPolyConv
+from gridit.display import print_array
+from gridit.logger import get_logger
 
 has_flopy = find_spec("flopy") is not None
 has_netcdf4 = find_spec("netCDF4") is not None

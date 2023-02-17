@@ -76,6 +76,7 @@ def write_raster(grid, array, fname: str, driver=None):
     with rasterio.open(fname, "w", **kwds) as ds:
         ds.write(array, 1)
 
+
 def fiona_property_type(ar):
     """Returns Fiona property type from array."""
     if np.issubdtype(ar.dtype, np.floating):

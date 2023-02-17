@@ -4,7 +4,7 @@ __all__ = ["shorten", "print_array"]
 
 import numpy as np
 
-from .logger import logging, get_logger
+from gridit.logger import logging, get_logger
 
 
 def shorten(text, width):
