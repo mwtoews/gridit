@@ -11,7 +11,7 @@ dynamic = ["version"]
 authors = [
     {name = "Mike Taves", email = "mwtoews@gmail.com"},
 ]
-description = "Spatial tools to translate raster or vector polygon data to regular grids"
+description = "Spatial tools to translate raster or vector geometry data to regular grids"
 readme = "README.md"
 keywords = ["rasterize", "grid", "regular grid"]
 license = {text = "BSD 3-Clause"}

@@ -118,9 +118,14 @@ Examples:
             "format 'datasource:layer'"
         )
         array_from_vector_group.add_argument(
-            "--array-from-vector-attribute", metavar="NAME",
-            help="Name of attribute to rasterize. If None, a boolean result "
-                 "where polygon features are located is returned."
+            "--array-from-vector-attribute", metavar="NAME", default=None,
+            help=dedent("""\
+                Name of attribute to rasterize. Default None returns
+                a boolean result where vector features are located.""")
+        )
+        array_from_vector_group.add_argument(
+            "--array-from-vector-calc", metavar="CALC", default=None,
+            help="Not implemented yet."
         )
         array_from_vector_group.add_argument(
             "--array-from-vector-fill", metavar="FILL", default=0,
@@ -139,6 +144,14 @@ Examples:
             metavar="INT", type=int, default=5,
             help="If refine is greater than 1, set a maximum number "
                  "of refine levels. Default 5."
+        )
+        array_from_vector_group.add_argument(
+            "--all-touched", action="store_true",
+            help=dedent("""\
+                If enabled, all grid cells touched by polygon or line
+                geometries will be updated. Otherwise, by default only update
+                cells whose center is within the polygon or line is on the
+                render path. Ignored for points.""")
         )
     else:
         parser.add_argument_group(
@@ -200,11 +213,6 @@ Examples:
         "The default name is 'value'.")
 
     # General options
-    parser.add_argument(
-        "--all-touched", action="store_true",
-        help="If enabled, all grid cells touched by geometries will be burned "
-        "in. Otherwise, by default only burn in cells whose center is within "
-        "the polygon.")
     parser.add_argument(
         "--logger", metavar="LEVEL", default="INFO",
         help="Logger level, default INFO. Use WARNING to show fewer messages.")
@@ -349,7 +357,7 @@ Examples:
         vector_fname = getattr(args, "array_from_vector", None)
         layer = None
         attr_name = "array_from_vector_attribute"
-        attr = getattr(args, attr_name, None)
+        attr = getattr(args, attr_name)
         if vector_fname is None or attr is None:
             error("missing --array-from-vector and/or "
                   "--array-from-vector-attribute, which are required "
@@ -391,10 +399,11 @@ Examples:
             layer = args.array_from_vector[(split + 1):]
         try:
             array = grid.array_from_vector(
-                fname, args.array_from_vector_attribute,
+                fname, layer=layer,
+                attribute=args.array_from_vector_attribute,
+                calc=args.array_from_vector_calc,
                 fill=args.array_from_vector_fill,
                 refine=args.array_from_vector_refine,
-                layer=layer,
                 all_touched=args.all_touched,
             )
             write_output(array)

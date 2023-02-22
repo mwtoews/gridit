@@ -14,6 +14,8 @@ from gridit import Grid
 mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
 mana_hk_nan_path = datadir / "Mana_hk_nan.tif"
+lines_path = datadir / "waitaku2_lines.shp"
+points_path = datadir / "waitaku2_points.shp"
 
 
 @requires_pkg("rasterio")
@@ -234,131 +236,174 @@ def grid_from_vector_all():
 
 
 @requires_pkg("fiona", "rasterio")
-def test_array_from_vector(grid_from_vector_all):
-    ar = grid_from_vector_all.array_from_vector(mana_polygons_path, "K_m_d")
-    assert ar.shape == (24, 18)
-    assert ar.fill_value == 0.0
-    assert np.issubdtype(ar.dtype, np.floating)
-    assert ar.mask.sum() == 193
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 5
+@pytest.mark.parametrize("attribute", [None, "K_m_d"])
+@pytest.mark.parametrize("refine", [1, 2, 5])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector(
+        grid_from_vector_all, attribute, refine, all_touched):
     ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path, "K_m_d", all_touched=True)
-    assert ar.mask.sum() == 153
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 5
+        mana_polygons_path,
+        attribute=attribute, refine=refine, all_touched=all_touched)
+    assert ar.shape == (24, 18)
+    assert np.ma.isMaskedArray(ar)
+    if attribute is None:
+        assert np.issubdtype(ar.dtype, np.integer)
+        assert ar.fill_value == 0
+        assert set(np.unique(ar).filled()) == {0, 1}
+    else:
+        assert np.issubdtype(ar.dtype, np.floating)
+        assert ar.fill_value == 0.0
+        assert ar.min() == pytest.approx(0.00012)
+        assert ar.max() == pytest.approx(12.3)
+        assert len(np.unique(ar)) == {
+            1: 5,
+            2: 18,
+            5: 47 if all_touched is False else 44,
+        }[refine]
+    if all_touched is False:
+        expected_ar_mask_sum = {1: 193, 2: 175, 5: 165}[refine]
+    else:
+        expected_ar_mask_sum = 153
+    assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("fiona", "rasterio")
-def test_array_from_vector_refine_2(grid_from_vector_all):
+@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_other_fill(
+        grid_from_vector_all, refine, all_touched):
     ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path, "K_m_d", fill=1e10, refine=2)
+        mana_polygons_path, attribute="K_m_d", fill=1e10,
+        refine=refine, all_touched=all_touched)
     assert ar.shape == (24, 18)
+    assert np.ma.isMaskedArray(ar)
     assert np.issubdtype(ar.dtype, np.floating)
     assert ar.fill_value == 1e10
-    assert ar.mask.sum() == 175
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 18
-    ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path, "K_m_d", fill=1e10, refine=2, all_touched=True)
-    assert ar.mask.sum() == 153
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 18
+    assert ar.min() == pytest.approx(0.00012)
+    assert ar.max() == pytest.approx(12.3)
+    assert len(np.unique(ar)) == {1: 5, 2: 18}[refine]
 
 
 @requires_pkg("fiona", "rasterio")
-def test_array_from_vector_refine_5(grid_from_vector_all):
+@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_layer_intnull(
+        grid_from_vector_all, refine, all_touched):
     ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path, "K_m_d", fill=1e10, refine=5)
-    assert ar.shape == (24, 18)
-    assert np.issubdtype(ar.dtype, np.floating)
-    assert ar.mask.sum() == 165
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 47
-    ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path, "K_m_d", fill=1e10, refine=5, all_touched=True)
-    assert ar.mask.sum() == 153
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 44
-
-
-@requires_pkg("fiona", "rasterio")
-def test_array_from_vector_layer(grid_from_vector_all):
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "K_m_d", layer="mana_polygons")
-    assert ar.shape == (24, 18)
-    assert ar.fill_value == 0.0
-    assert np.issubdtype(ar.dtype, np.floating)
-    assert ar.mask.sum() == 193
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 5
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "K_m_d", layer="mana_polygons", all_touched=True)
-    assert ar.mask.sum() == 153
-    np.testing.assert_almost_equal(ar.min(), 0.00012)
-    np.testing.assert_almost_equal(ar.max(), 12.3)
-    assert len(np.unique(ar)) == 5
-
-
-@requires_pkg("fiona", "rasterio")
-def test_array_from_vector_layer_intnull(grid_from_vector_all):
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "intnull", layer="mana_polygons")
+        datadir, attribute="intnull", layer="mana_polygons",
+        refine=refine, all_touched=all_touched)
     assert ar.shape == (24, 18)
     assert ar.fill_value == 0
     assert np.issubdtype(ar.dtype, np.integer)
-    assert ar.mask.sum() == 228
     assert ar.min() == 4
     assert ar.max() == 51
-    assert ar.sum() == 3487
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "intnull", layer="mana_polygons", all_touched=True)
-    assert np.issubdtype(ar.dtype, np.integer)
-    assert ar.mask.sum() == 181
-    assert ar.min() == 4
-    assert ar.max() == 51
-    assert ar.sum() == 5072
+    if all_touched is False:
+        expected_ar_sum = {1: 3487, 2: 4125}[refine]
+        expected_ar_mask_sum = {1: 228, 2: 204}[refine]
+    else:
+        expected_ar_sum = {1: 5072, 2: 4892}[refine]
+        expected_ar_mask_sum = 181
+    assert ar.sum() == expected_ar_sum
+    assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("fiona", "rasterio")
-def test_array_from_vector_layer_floatnull(grid_from_vector_all):
+@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_layer_floatnull(
+        grid_from_vector_all, refine, all_touched):
     ar = grid_from_vector_all.array_from_vector(
-        datadir, "floatnull", layer="mana_polygons")
+        datadir, attribute="floatnull", layer="mana_polygons",
+        refine=refine, all_touched=all_touched)
     assert ar.shape == (24, 18)
     assert ar.fill_value == 0.0
     assert np.issubdtype(ar.dtype, np.floating)
-    assert ar.mask.sum() == 228
     np.testing.assert_almost_equal(ar.min(), 0.002)
     np.testing.assert_almost_equal(ar.max(), 2452.0)
-    np.testing.assert_almost_equal(ar.sum(), 126963.862)
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "floatnull", layer="mana_polygons", all_touched=True)
-    assert ar.mask.sum() == 181
-    np.testing.assert_almost_equal(ar.min(), 0.002)
-    np.testing.assert_almost_equal(ar.max(), 2452.0)
-    np.testing.assert_almost_equal(ar.sum(), 193418.014)
+    if all_touched is False:
+        expected_ar_sum = {1: 126963.862, 2: 146399.38}[refine]
+        expected_ar_mask_sum = {1: 228, 2: 204}[refine]
+    else:
+        expected_ar_sum = {1: 193418.014, 2: 178515.09}[refine]
+        expected_ar_mask_sum = 181
+    assert ar.sum() == pytest.approx(expected_ar_sum)
+    assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("fiona", "rasterio")
-def test_array_from_vector_layer_allnull(grid_from_vector_all):
+@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_layer_allnull(
+        grid_from_vector_all, refine, all_touched):
     ar = grid_from_vector_all.array_from_vector(
-        datadir, "allnull", layer="mana_polygons")
+        datadir, attribute="allnull", layer="mana_polygons",
+        refine=refine, all_touched=all_touched)
     assert ar.shape == (24, 18)
     assert ar.fill_value == 0
     assert np.issubdtype(ar.dtype, np.integer)
     assert ar.mask.all()
     assert ar.data.min() == ar.data.max()
-    ar = grid_from_vector_all.array_from_vector(
-        datadir, "allnull", layer="mana_polygons", all_touched=True)
-    assert ar.mask.all()
-    assert ar.data.min() == ar.data.max()
+
+
+@requires_pkg("fiona", "rasterio")
+@pytest.mark.parametrize(
+    "res_shape", [(1000, (13, 8)), (2000, (7, 4))])
+@pytest.mark.parametrize("attribute", [None, "id"])
+@pytest.mark.parametrize("refine", [1, 5])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_points(res_shape, attribute, refine, all_touched):
+    resolution, shape = res_shape
+    grid = Grid(resolution, shape, (1810000.0, 5878000.0))
+    ar = grid.array_from_vector(
+        points_path, attribute=attribute,
+        refine=refine, all_touched=all_touched)
+    assert ar.shape == shape
+    assert np.ma.isMaskedArray(ar)
+    assert np.issubdtype(ar.dtype, np.integer)
+    assert ar.fill_value == 0
+    ar_s = set(np.unique(ar).filled())
+    if attribute is None:
+        assert ar_s == {0, 1}
+    else:
+        all11 = set(range(11))
+        if resolution == 2000:
+            # when grid contains more than one point, values are not consistent
+            assert len(ar_s) == 9
+            assert ar_s.issubset(all11)
+            assert ar_s.issuperset(all11.difference({4, 8, 1, 10}))
+        else:
+            assert ar_s == all11
+    assert ar.mask.sum() == {1000: 94, 2000: 20}[resolution]
+
+
+@requires_pkg("fiona", "rasterio")
+@pytest.mark.parametrize("attribute", [None, "nzsegment", "StreamOrde"])
+@pytest.mark.parametrize("refine", [1, 2, 5])
+@pytest.mark.parametrize("all_touched", [False, True])
+def test_array_from_vector_lines(attribute, refine, all_touched):
+    grid = Grid(250, (67, 64), (1803250.0, 5878500.0))
+    ar = grid.array_from_vector(
+        lines_path, attribute=attribute,
+        refine=refine, all_touched=all_touched)
+    assert ar.shape == (67, 64)
+    assert np.ma.isMaskedArray(ar)
+    assert np.issubdtype(ar.dtype, np.integer)
+    assert ar.fill_value == 0
+    if attribute is None:
+        assert set(np.unique(ar).filled()) == {0, 1}
+    elif attribute == "nzsegment":
+        assert len(np.unique(ar)) == {
+            1: 245 if all_touched is False else 240,
+            2: 250,
+            5: 258,
+        }[refine]
+    elif attribute == "StreamOrde":
+        assert set(np.unique(ar).filled()) == {0, 1, 2, 3, 4, 5}
+    if all_touched is False:
+        expected_ar_mask_sum = {1: 3239, 2: 3210, 5: 3180}[refine]
+    else:
+        expected_ar_mask_sum = 3136
+    assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("rasterio")
@@ -396,10 +441,11 @@ def test_array_from_vector_no_projection():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25)
     assert grid.projection == ""
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d")
+    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 146
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d", all_touched=True)
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", all_touched=True)
     assert ar.mask.sum() == 128
 
 
@@ -410,10 +456,11 @@ def test_array_from_vector_same_projection():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25, projection=projection)
     assert grid.projection == projection
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d")
+    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 146
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d", all_touched=True)
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", all_touched=True)
     assert ar.mask.sum() == 128
 
 
@@ -422,16 +469,18 @@ def test_array_from_vector_different_projection():
     grid = Grid.from_bbox(
         19455906, -5026598, 19457499, -5024760, 25, projection="EPSG:3857")
     assert grid.projection == "EPSG:3857"
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d")
+    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
     assert ar.shape == (74, 64)
     assert ar.mask.sum() == 950
-    ar = grid.array_from_vector(mana_polygons_path, "K_m_d", all_touched=True)
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", all_touched=True)
     assert ar.mask.sum() == 873
 
 
 @requires_pkg("fiona", "rasterio")
 def test_mask_from_vector_layer(grid_from_vector_all):
-    mask = grid_from_vector_all.mask_from_vector(datadir, "mana_polygons")
+    mask = grid_from_vector_all.mask_from_vector(
+        datadir, layer="mana_polygons")
     assert mask.shape == (24, 18)
     assert mask.dtype == "bool"
     assert mask.sum() == 193

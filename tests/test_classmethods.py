@@ -7,6 +7,8 @@ from gridit import Grid
 
 mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
+lines_path = datadir / "waitaku2_lines.shp"
+points_path = datadir / "waitaku2_points.shp"
 
 
 def test_grid_from_bbox():
@@ -15,6 +17,14 @@ def test_grid_from_bbox():
     expected = Grid(25.0, (34, 31), (1748750.0, 5449750.0))
     assert grid == expected
     assert grid.bounds == (1748750.0, 5448900.0, 1749525.0, 5449750.0)
+
+
+def test_grid_from_bbox_point():
+    grid = Grid.from_bbox(
+        1748762.8, 5448908.9, 1748762.8, 5448908.9, 25)
+    expected = Grid(25.0, (1, 1), (1748750.0, 5448925.0))
+    assert grid == expected
+    assert grid.bounds == (1748750.0, 5448900.0, 1748775.0, 5448925.0)
 
 
 def test_grid_from_bbox_buffer():
@@ -50,47 +60,60 @@ def test_grid_from_raster_buffer():
     expected = Grid(8.0, (282, 213), (1748672.0, 5451112.0), grid.projection)
     assert grid == expected
 
-
-@requires_pkg("rasterio")
-def test_grid_from_raster_resolution_buffer():
+    # with buffer
     grid = Grid.from_raster(mana_dem_path, 10.0, 20.0)
     expected = Grid(10.0, (227, 171), (1748670.0, 5451120.0), grid.projection)
     assert grid == expected
 
 
-@pytest.fixture
-def grid_from_vector_all():
-    return Grid.from_vector(mana_polygons_path, 100)
+@requires_pkg("fiona")
+def test_grid_from_vector_point():
+    # all
+    grid = Grid.from_vector(points_path, 250)
+    expected = Grid(250.0, (50, 28), (1810500.0, 5877750.0), grid.projection)
+    assert grid == expected
+
+    # filter
+    grid = Grid.from_vector(points_path, 250, {"id": 5})
+    expected = Grid(250.0, (1, 1), (1812000.0, 5869250.0), grid.projection)
+    assert grid == expected
 
 
 @requires_pkg("fiona")
-def test_grid_from_vector_all(grid_from_vector_all):
-    grid = grid_from_vector_all
+def test_grid_from_vector_polygon():
+    # all
+    grid = Grid.from_vector(mana_polygons_path, 100)
     expected = Grid(100.0, (24, 18), (1748600.0, 5451200.0), grid.projection)
     assert grid == expected
 
+    # layer
+    grid = Grid.from_vector(datadir, 100, layer="mana_polygons")
+    assert grid == expected
 
-@pytest.fixture
-def grid_from_vector_filter():
-    return Grid.from_vector(mana_polygons_path, 100, {"name": "South-east"})
-
-
-@requires_pkg("fiona")
-def test_grid_from_vector_filter(grid_from_vector_filter):
-    grid = grid_from_vector_filter
+    # filter
+    grid = Grid.from_vector(mana_polygons_path, 100, {"name": "South-east"})
     expected = Grid(100.0, (14, 13), (1749100.0, 5450400.0), grid.projection)
     assert grid == expected
 
-
-@requires_pkg("fiona", "rasterio")
-def test_grid_from_vector_buffer():
+    # buffer
     grid = Grid.from_vector(mana_polygons_path, 100, buffer=500)
     expected = Grid(100.0, (32, 27), (1748200.0, 5451600.0), grid.projection)
     assert grid == expected
 
 
 @requires_pkg("fiona")
-def test_grid_from_vector_layer():
-    grid = Grid.from_vector(datadir, 100, layer="mana_polygons")
-    expected = Grid(100.0, (24, 18), (1748600.0, 5451200.0), grid.projection)
+def test_grid_from_vector_line():
+    # all
+    grid = Grid.from_vector(lines_path, 250)
+    expected = Grid(250.0, (67, 64), (1803250.0, 5878500.0), grid.projection)
+    assert grid == expected
+
+    # filter
+    grid = Grid.from_vector(lines_path, 250, {"StreamOrde": 5})
+    expected = Grid(250.0, (4, 3), (1811500.0, 5877000.0), grid.projection)
+    assert grid == expected
+
+    # buffer
+    grid = Grid.from_vector(lines_path, 250, buffer=500)
+    expected = Grid(250.0, (70, 66), (1803000.0, 5878750.0), grid.projection)
     assert grid == expected
