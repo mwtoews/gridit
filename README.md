@@ -1,6 +1,7 @@
 # Gridit
 
 [![Tests](https://github.com/mwtoews/gridit/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mwtoews/gridit/actions/workflows/tests.yml)
+[![Codcov](https://codecov.io/gh/mwtoews/gridit/branch/main/graph/badge.svg)](https://codecov.io/gh/mwtoews/gridit)
 [![DOI](https://zenodo.org/badge/530041277.svg)](https://zenodo.org/badge/latestdoi/530041277)
 
 ## Description
