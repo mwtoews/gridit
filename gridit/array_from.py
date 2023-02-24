@@ -31,6 +31,7 @@ def array_from_array(self, grid, array, resampling=None):
     """
     try:
         import rasterio
+        from rasterio.crs import CRS
         from rasterio.enums import Resampling
         from rasterio.warp import reproject
     except ModuleNotFoundError:
@@ -77,8 +78,7 @@ def array_from_array(self, grid, array, resampling=None):
     if not rasterio.dtypes.check_dtype(array.dtype):
         dtype = rasterio.dtypes.get_minimum_dtype(array)
         self.logger.debug(
-            "changing array dtype from '%s' to '%s'",
-            array.dtype, dtype)
+            "changing array dtype from '%s' to '%s'", array.dtype, dtype)
         array = array.astype(dtype)
     kwds = {}
     nodata = None
@@ -98,8 +98,7 @@ def array_from_array(self, grid, array, resampling=None):
     dst_crs = grid.projection
     if not src_crs and not dst_crs:
         # TODO: is there a better catch-all projection?
-        src_crs = "EPSG:3857"
-        dst_crs = "EPSG:3857"
+        src_crs = dst_crs = CRS.from_epsg(3857)
     elif not src_crs:
         src_crs = dst_crs
     elif not dst_crs:
@@ -231,7 +230,7 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
 
 def array_from_vector(
         self, fname: str, *, layer=None, attribute=None, calc=None,
-        fill=0, refine: int = 1, all_touched=False):
+        fill=0, refine=None, all_touched=False):
     """Return array from vector source data aligned to grid info.
 
     The datatype is inferred from the attribute values.
@@ -250,10 +249,12 @@ def array_from_vector(
         This option is mutually exclusive with ``attribute``.
     fill : float or int, default 0
         Fill value, only used where polygon does not cover unmasked grid.
-    refine : int, default 1
-        If greater than 1, refine each dimension by a factor as a
-        pre-processing step to approximate more details from the vector
-        file to the gridded result. Ignored for points.
+    refine : int, optional
+        Controls level of pre-processing used to approximate details
+        from polygon vector sources. Ignored for points.
+        If one, use default (coarse) rasterizing at grid resolution.
+        If greater than 1, refine each dimension by a factor.
+        Default will determine an appropriate refine value.
     all_touched : bool, defalt False
         If True, all grid cells touched by polygon or line geometries will be
         updated. Default False will only update cells whose center is within
@@ -272,162 +273,215 @@ def array_from_vector(
     ModuleNotFoundError
         If fiona and/or rasterio is not installed.
     """
-    try:
-        import fiona
-        from affine import Affine
-        from rasterio import features
-        from rasterio.dtypes import get_minimum_dtype
-        from rasterio.enums import Resampling
-        from rasterio.warp import reproject
-        from shapely.geometry import shape
-    except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "array_from_vector requires fiona and rasterio")
-    grid_transform = self.transform
-    grid_crs = self.projection
     if calc is not None:
         raise NotImplementedError("calc does nothing for now")
-    use_refine = refine > 1
-    if refine < 1:
-        raise ValueError("refine must be >= 1")
     self.logger.info("reading array from vector datasource: %s", fname)
-    if layer is None:
-        layers = fiona.listlayers(fname)
-        if len(layers) > 1:
-            self.logger.warning(
-                "choosing the first of %d layers: %s", len(layers), layers)
-            layer = layers[0]
-    with fiona.open(fname, "r", layer=layer) as ds:
-        self.logger.info("processing %s geometry data", ds.schema["geometry"])
-        ds_crs = ds.crs_wkt
-        do_transform = False
-        if not grid_crs:
-            grid_crs = ds_crs
-            self.logger.info(
-                "assuming same projection: %s", shorten(grid_crs, 60))
-        elif is_same_crs(grid_crs, ds_crs):
-            grid_crs = ds_crs
-            self.logger.info(
-                "same projection: %s", shorten(grid_crs, 60))
-        else:
-            do_transform = True
-            from fiona.transform import transform_geom
-            from shapely.geometry import box, mapping
-            self.logger.info(
-                "geometries will be transformed from %s to %s",
-                shorten(ds_crs, 60), shorten(grid_crs, 60))
-        geom_vals = []
-        grid_bounds = self.bounds
-        if attribute is None:
-            val = 1
-            nodata = 0
-            dtype = "uint8"
-            resampling = Resampling.mode
-        else:
-            vals = []
-            attributes = list(ds.schema["properties"].keys())
-            if attribute not in attributes:
-                raise KeyError(
-                    f"could not find {attribute} in {attributes}")
-            vdtype = ds.schema["properties"][attribute]
-        if do_transform:
-            grid_box = box(*grid_bounds)
-            # TODO: does this make sense?
-            buf = self.resolution * np.average(self.shape) * 0.15
-            grid_box_t = shape(transform_geom(
-                grid_crs, ds_crs,
-                mapping(grid_box.buffer(buf)))).buffer(buf)
-            kwargs = {"bbox": grid_box_t.bounds}
-            self.logger.info(
-                "transforming features in bbox %s", grid_box_t.bounds)
-            for _, feat in ds.items(**kwargs):
-                if attribute is not None:
-                    val = feat["properties"][attribute]
-                    if val is None:
-                        continue
-                geom = transform_geom(ds_crs, grid_crs, feat["geometry"])
-                geom_obj = shape(geom)
-                if geom_obj.is_empty or not grid_box.intersects(geom_obj):
-                    continue
-                if attribute is not None:
-                    vals.append(val)
-                geom_vals.append((geom, val))
-        else:
-            for _, feat in ds.items(bbox=grid_bounds):
-                if attribute is not None:
-                    val = feat["properties"][attribute]
-                    if val is None:
-                        continue
-                geom = feat["geometry"]
-                if shape(geom).is_empty:
-                    continue
-                if attribute is not None:
-                    vals.append(val)
-                geom_vals.append((geom, val))
+    vd = GridVectorData(self, fname, layer, attribute)
+    return vd.rasterize_array(
+        fill=fill, refine=refine, all_touched=all_touched)
 
-    if len(geom_vals) == 0:
-        self.logger.warning("no valid geometry objects found")
+class GridVectorData:
+
+    def __init__(self, grid, fname, layer, attribute=None):
+        """Read vector data source and return data in dict."""
+        try:
+            import fiona
+        except ModuleNotFoundError:
+            import inspect
+
+            stack1 = inspect.stack()[1]
+            raise ModuleNotFoundError(f"{stack1.function} requires fiona")
+        from shapely.geometry import shape
+
+        self.grid = grid
+        self.logger = grid.logger
+        self.shape = grid.shape
+        self.resolution = grid.resolution
+        self.transform = grid.transform
+        self.bounds = grid.bounds
+        self.attribute = attribute
+        if attribute is not None:
+            self.vals = []
+        self.geoms = []
+        self.geomds = []
+        if layer is None:
+            layers = fiona.listlayers(fname)
+            if len(layers) > 1:
+                self.logger.warning(
+                    "choosing the first of %d layers: %s", len(layers), layers)
+                layer = layers[0]
+        with fiona.open(fname, "r", layer=layer) as ds:
+            self.geom_type = ds.schema["geometry"]
+            self.logger.info("processing %s geometry data", self.geom_type)
+            ds_crs = ds.crs_wkt
+            grid_crs = grid.projection
+            do_transform = False
+            if not grid_crs:
+                self.logger.info(
+                    "assuming same projection: %s", shorten(grid_crs, 60))
+            elif is_same_crs(grid_crs, ds_crs):
+                self.logger.info("same projection: %s", shorten(grid_crs, 60))
+            else:
+                do_transform = True
+                self.logger.info(
+                    "geometries will be transformed from %s to %s",
+                    shorten(ds_crs, 60), shorten(grid_crs, 60))
+            if attribute is not None:
+                attributes = list(ds.schema["properties"].keys())
+                if attribute not in attributes:
+                    raise KeyError(
+                        f"could not find {attribute!r} in {attributes}")
+                self.vdtype = ds.schema["properties"][attribute]
+
+            if do_transform:
+                from fiona.transform import transform_geom
+                from shapely.geometry import box, mapping
+
+                grid_box = box(*self.bounds)
+                # expand box slightly, because it might rotate with transform
+                buf = self.resolution * np.average(self.shape) * 0.15
+                grid_box_t = shape(transform_geom(
+                    grid_crs, ds_crs,
+                    mapping(grid_box.buffer(buf)))).buffer(buf)
+                kwargs = {"bbox": grid_box_t.bounds}
+                self.logger.info(
+                    "transforming features in bbox %s", grid_box_t.bounds)
+                for _, feat in ds.items(**kwargs):
+                    if attribute is not None:
+                        val = feat["properties"][attribute]
+                        if val is None:
+                            continue
+                    geomd = transform_geom(ds_crs, grid_crs, feat["geometry"])
+                    geom = shape(geomd)
+                    if geom.is_empty or not grid_box.intersects(geom):
+                        continue
+                    self.geomds.append(geomd)
+                    self.geoms.append(geom)
+                    if attribute is not None:
+                        self.vals.append(val)
+            else:
+                for _, feat in ds.items(bbox=self.bounds):
+                    if attribute is not None:
+                        val = feat["properties"][attribute]
+                        if val is None:
+                            continue
+                    geomd = feat["geometry"]
+                    geom = shape(geomd)
+                    if geom.is_empty:
+                        continue
+                    self.geomds.append(geomd)
+                    self.geoms.append(geom)
+                    if attribute is not None:
+                        self.vals.append(val)
+
+    def __len__(self):
+        return len(self.geoms)
+
+    def empty_array(self, fill=0):
         nodata = 0
-        if attribute is not None and vdtype.startswith("float"):
-            nodata = 0.0
-        dtype = get_minimum_dtype(nodata)
+        if self.attribute is None:
+            dtype = "uint8"
+        elif self.vdtype.startswith("float"):
+            dtype = "float64"
+        elif self.vdtype.startswith("int"):
+            dtype = "uint8"
+        else:
+            raise ValueError(
+                f"attribute {self.attribute} is neither float or int")
         ar = np.ma.zeros(self.shape, dtype=dtype)
         ar.mask = True
         ar.fill_value = fill
         return ar
 
-    if attribute is not None:
-        vals = np.array(vals)
-        if vdtype.startswith("float"):
-            nodata = vals.max() * 10.0
-            resampling = Resampling.average
-        elif vdtype.startswith("int"):
-            if vals.min() > 0:
-                nodata = 0
-            else:
-                nodata = vals.max() + 1
+    def rasterize_array(self, refine=None, fill=0, all_touched=False):
+        try:
+            from affine import Affine
+            from rasterio import features
+            from rasterio.dtypes import get_minimum_dtype
+            from rasterio.enums import Resampling
+        except ModuleNotFoundError:
+            import inspect
+
+            stack1 = inspect.stack()[1]
+            raise ModuleNotFoundError(f"{stack1.function} requires rasterio")
+
+        if len(self) == 0:
+            self.logger.warning("no valid geometry objects found")
+            return self.empty_array(fill=fill)
+
+        if self.attribute is None:
+            geom_vals = [(g, 1) for g in self.geomds]
+            nodata = 0
+            dtype = "uint8"
             resampling = Resampling.mode
         else:
-            raise ValueError(
-                f"attribute {attribute} is neither float or int")
-        dtype = get_minimum_dtype(np.append(vals, nodata))
-        if dtype == "float32":
-            dtype = "float64"
-    dtype_conv = np.dtype(dtype).type
-    nodata = dtype_conv(nodata)
-    fill = dtype_conv(fill)
-    ar = np.ma.empty(self.shape, dtype=dtype)
-    ar.fill(nodata)
-    if use_refine:
-        fine_transform = grid_transform * Affine.scale(1. / refine)
-        fine_shape = tuple(n * refine for n in self.shape)
-        self.logger.info("rasterizing features to %s fine array", dtype)
-        fine_ar = features.rasterize(
-            geom_vals, fine_shape, transform=fine_transform,
-            fill=nodata, dtype=dtype, all_touched=all_touched)
-        self.logger.info(
-            "reprojecting from fine to coarse array using "
-            "%s resampling method and all_touched=%s",
-            resampling, all_touched)
-        _ = reproject(
-            fine_ar, ar.data,
-            src_transform=fine_transform, dst_transform=grid_transform,
-            src_crs=ds_crs, dst_crs=ds_crs,
-            src_nodata=nodata, dst_nodata=nodata,
-            resampling=resampling)
-    else:
-        self.logger.info(
-            "rasterizing features to %s array with all_touched=%s",
-            dtype, all_touched)
-        _ = features.rasterize(
-            geom_vals, self.shape, out=ar.data, transform=grid_transform,
-            dtype=dtype, all_touched=all_touched)
-    is_nodata = ar.data == nodata
-    if is_nodata.any():
-        ar.data[is_nodata] = fill
-        ar.mask |= is_nodata
-    ar.fill_value = fill
-    return ar
+            geom_vals = zip(self.geomds, self.vals)
+            vals = np.array(self.vals)
+            if self.vdtype.startswith("float"):
+                nodata = vals.max() * 10.0
+                resampling = Resampling.average
+            elif self.vdtype.startswith("int"):
+                if vals.min() > 0:
+                    nodata = 0
+                else:
+                    nodata = vals.max() + 1
+                resampling = Resampling.mode
+            else:
+                raise ValueError(
+                    f"attribute {self.attribute} is neither float or int")
+            dtype = get_minimum_dtype(np.append(vals, nodata))
+            if dtype == "float32":
+                dtype = "float64"
+
+        dtype_conv = np.dtype(dtype).type
+        nodata = dtype_conv(nodata)
+        fill = dtype_conv(fill)
+        ar = np.ma.empty(self.shape, dtype=dtype)
+        ar.fill(nodata)
+
+        if refine is None:
+            refine = 1
+            if self.attribute is not None and "polygon" in self.geom_type.lower():
+                refine = 5
+            msg = "selecting default"
+        else:
+            msg = "using"
+        self.logger.info("%s refine=%d for %s", msg, refine, self.geom_type)
+        if refine > 1:
+            from rasterio.crs import CRS
+            from rasterio.warp import reproject
+
+            fine_transform = self.transform * Affine.scale(1. / refine)
+            fine_shape = tuple(n * refine for n in self.shape)
+            self.logger.info("rasterizing features to %s fine array", dtype)
+            fine_ar = features.rasterize(
+                geom_vals, fine_shape, transform=fine_transform,
+                fill=nodata, dtype=dtype, all_touched=all_touched)
+            # TODO: is there a better catch-all projection?
+            ds_crs = CRS.from_epsg(3857)
+            self.logger.info(
+                "reprojecting from fine to coarse array using "
+                "%s resampling method and all_touched=%s",
+                resampling, all_touched)
+            _ = reproject(
+                fine_ar, ar.data,
+                src_transform=fine_transform, dst_transform=self.transform,
+                src_crs=ds_crs, dst_crs=ds_crs,
+                src_nodata=nodata, dst_nodata=nodata,
+                resampling=resampling)
+        else:
+            self.logger.info(
+                "rasterizing features to %s array with all_touched=%s",
+                dtype, all_touched)
+            _ = features.rasterize(
+                geom_vals, self.shape, out=ar.data, transform=self.transform,
+                dtype=dtype, all_touched=all_touched)
+        is_nodata = ar.data == nodata
+        if is_nodata.any():
+            ar.data[is_nodata] = fill
+            ar.mask |= is_nodata
+        ar.fill_value = fill
+        return ar
 
 
 def mask_from_vector(self, fname, *, layer=None):

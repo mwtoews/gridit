@@ -134,10 +134,13 @@ Examples:
         )
         array_from_vector_group.add_argument(
             "--array-from-vector-refine",
-            metavar="INT", type=int, default=5,
-            help="If greater than 1, refine each dimension by a factor as a "
-                 "pre-processing step to approximate more details from the "
-                 "vector file to the gridded result. Default 5."
+            metavar="INT", type=int,
+            help=dedent("""\
+                Controls level of pre-processing used to approximate details
+                from polygon vector sources. Ignored for points.
+                If one, use default (coarse) rasterizing at grid resolution.
+                If greater than 1, refine each dimension by a factor.
+                Default will determine an appropriate refine value.""")
         )
         array_from_vector_group.add_argument(
             "--array-from-vector-max-levels",
@@ -367,9 +370,11 @@ Examples:
             vector_fname = args.array_from_vector[:split]
             layer = args.array_from_vector[(split + 1):]
 
+        refine = args.array_from_vector_refine
+        if refine is None:
+            refine = 5  # use this default, assuming polygon
         gpc = GridPolyConv.from_grid_vector(
-            grid, vector_fname, attr, layer=layer,
-            refine=args.array_from_vector_refine,
+            grid, vector_fname, attr, layer=layer, refine=refine,
             max_levels=args.array_from_vector_max_levels)
 
         fill = args.array_from_vector_fill
