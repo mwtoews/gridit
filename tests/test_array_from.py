@@ -237,13 +237,27 @@ def grid_from_vector_all():
 
 @requires_pkg("fiona", "rasterio")
 @pytest.mark.parametrize("attribute", [None, "K_m_d"])
-@pytest.mark.parametrize("refine", [1, 2, 5])
+@pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector(
-        grid_from_vector_all, attribute, refine, all_touched):
-    ar = grid_from_vector_all.array_from_vector(
-        mana_polygons_path,
-        attribute=attribute, refine=refine, all_touched=all_touched)
+        caplog, grid_from_vector_all, attribute, refine, all_touched):
+    with caplog.at_level(logging.INFO):
+        ar = grid_from_vector_all.array_from_vector(
+            mana_polygons_path,
+            attribute=attribute, refine=refine, all_touched=all_touched)
+        if refine is None:
+            # re-define default if None
+            refine = 1 if attribute is None else 5
+            assert sum(
+                f"selecting default refine={refine} for Polygon" in msg
+                for msg in caplog.messages) == 1, caplog.messages
+        else:
+            assert sum(
+                "selecting default" in msg
+                for msg in caplog.messages) == 0, caplog.messages
+            assert sum(
+                f"using refine={refine} for Polygon" in msg
+                for msg in caplog.messages) == 1, caplog.messages
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
     if attribute is None:
@@ -268,7 +282,7 @@ def test_array_from_vector(
 
 
 @requires_pkg("fiona", "rasterio")
-@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_other_fill(
         grid_from_vector_all, refine, all_touched):
@@ -281,11 +295,17 @@ def test_array_from_vector_other_fill(
     assert ar.fill_value == 1e10
     assert ar.min() == pytest.approx(0.00012)
     assert ar.max() == pytest.approx(12.3)
-    assert len(np.unique(ar)) == {1: 5, 2: 18}[refine]
+    if refine is None:
+        refine = 5  # this is the default
+    assert len(np.unique(ar)) == {
+        1: 5,
+        2: 18,
+        5: 47 if all_touched is False else 44,
+    }[refine]
 
 
 @requires_pkg("fiona", "rasterio")
-@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_layer_intnull(
         grid_from_vector_all, refine, all_touched):
@@ -297,18 +317,20 @@ def test_array_from_vector_layer_intnull(
     assert np.issubdtype(ar.dtype, np.integer)
     assert ar.min() == 4
     assert ar.max() == 51
+    if refine is None:
+        refine = 5  # this is the default
     if all_touched is False:
-        expected_ar_sum = {1: 3487, 2: 4125}[refine]
-        expected_ar_mask_sum = {1: 228, 2: 204}[refine]
+        expected_ar_sum = {1: 3487, 2: 4125, 5: 4224}[refine]
+        expected_ar_mask_sum = {1: 228, 2: 204, 5: 193}[refine]
     else:
-        expected_ar_sum = {1: 5072, 2: 4892}[refine]
+        expected_ar_sum = {1: 5072, 2: 4892, 5: 4594}[refine]
         expected_ar_mask_sum = 181
     assert ar.sum() == expected_ar_sum
     assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("fiona", "rasterio")
-@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_layer_floatnull(
         grid_from_vector_all, refine, all_touched):
@@ -320,18 +342,20 @@ def test_array_from_vector_layer_floatnull(
     assert np.issubdtype(ar.dtype, np.floating)
     np.testing.assert_almost_equal(ar.min(), 0.002)
     np.testing.assert_almost_equal(ar.max(), 2452.0)
+    if refine is None:
+        refine = 5  # this is the default
     if all_touched is False:
-        expected_ar_sum = {1: 126963.862, 2: 146399.38}[refine]
-        expected_ar_mask_sum = {1: 228, 2: 204}[refine]
+        expected_ar_sum = {1: 126963.862, 2: 146399.38, 5: 157549.255}[refine]
+        expected_ar_mask_sum = {1: 228, 2: 204, 5: 193}[refine]
     else:
-        expected_ar_sum = {1: 193418.014, 2: 178515.09}[refine]
+        expected_ar_sum = {1: 193418.014, 2: 178515.09, 5: 174303.1076}[refine]
         expected_ar_mask_sum = 181
     assert ar.sum() == pytest.approx(expected_ar_sum)
     assert ar.mask.sum() == expected_ar_mask_sum
 
 
 @requires_pkg("fiona", "rasterio")
-@pytest.mark.parametrize("refine", [1, 2])
+@pytest.mark.parametrize("refine", [None, 1, 2])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_layer_allnull(
         grid_from_vector_all, refine, all_touched):
@@ -346,17 +370,30 @@ def test_array_from_vector_layer_allnull(
 
 
 @requires_pkg("fiona", "rasterio")
-@pytest.mark.parametrize(
-    "res_shape", [(1000, (13, 8)), (2000, (7, 4))])
+@pytest.mark.parametrize("res_shape", [(1000, (13, 8)), (2000, (7, 4))])
 @pytest.mark.parametrize("attribute", [None, "id"])
-@pytest.mark.parametrize("refine", [1, 5])
+@pytest.mark.parametrize("refine", [None, 1, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
-def test_array_from_vector_points(res_shape, attribute, refine, all_touched):
+def test_array_from_vector_points(
+        caplog, res_shape, attribute, refine, all_touched):
     resolution, shape = res_shape
     grid = Grid(resolution, shape, (1810000.0, 5878000.0))
-    ar = grid.array_from_vector(
-        points_path, attribute=attribute,
-        refine=refine, all_touched=all_touched)
+    with caplog.at_level(logging.INFO):
+        ar = grid.array_from_vector(
+            points_path, attribute=attribute,
+            refine=refine, all_touched=all_touched)
+        if refine is None:
+            refine = 1  # this is the default
+            assert sum(
+                f"selecting default refine={refine} for Point" in msg
+                for msg in caplog.messages) == 1, caplog.messages
+        else:
+            assert sum(
+                "selecting default" in msg
+                for msg in caplog.messages) == 0, caplog.messages
+            assert sum(
+                f"using refine={refine} for Point" in msg
+                for msg in caplog.messages) == 1, caplog.messages
     assert ar.shape == shape
     assert np.ma.isMaskedArray(ar)
     assert np.issubdtype(ar.dtype, np.integer)
@@ -378,13 +415,26 @@ def test_array_from_vector_points(res_shape, attribute, refine, all_touched):
 
 @requires_pkg("fiona", "rasterio")
 @pytest.mark.parametrize("attribute", [None, "nzsegment", "StreamOrde"])
-@pytest.mark.parametrize("refine", [1, 2, 5])
+@pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
-def test_array_from_vector_lines(attribute, refine, all_touched):
+def test_array_from_vector_lines(caplog, attribute, refine, all_touched):
     grid = Grid(250, (67, 64), (1803250.0, 5878500.0))
-    ar = grid.array_from_vector(
-        lines_path, attribute=attribute,
-        refine=refine, all_touched=all_touched)
+    with caplog.at_level(logging.INFO):
+        ar = grid.array_from_vector(
+            lines_path, attribute=attribute,
+            refine=refine, all_touched=all_touched)
+        if refine is None:
+            refine = 1  # this is the default
+            assert sum(
+                f"selecting default refine={refine} for 3D LineString" in msg
+                for msg in caplog.messages) == 1, caplog.messages
+        else:
+            assert sum(
+                "selecting default" in msg
+                for msg in caplog.messages) == 0, caplog.messages
+            assert sum(
+                f"using refine={refine} for 3D LineString" in msg
+                for msg in caplog.messages) == 1, caplog.messages
     assert ar.shape == (67, 64)
     assert np.ma.isMaskedArray(ar)
     assert np.issubdtype(ar.dtype, np.integer)
@@ -441,7 +491,8 @@ def test_array_from_vector_no_projection():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25)
     assert grid.projection == ""
-    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", refine=1)
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 146
     ar = grid.array_from_vector(
@@ -456,7 +507,8 @@ def test_array_from_vector_same_projection():
     grid = Grid.from_bbox(
         1748762.8, 5448908.9, 1749509, 5449749, 25, projection=projection)
     assert grid.projection == projection
-    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", refine=1)
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 146
     ar = grid.array_from_vector(
@@ -469,7 +521,8 @@ def test_array_from_vector_different_projection():
     grid = Grid.from_bbox(
         19455906, -5026598, 19457499, -5024760, 25, projection="EPSG:3857")
     assert grid.projection == "EPSG:3857"
-    ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d")
+    ar = grid.array_from_vector(
+        mana_polygons_path, attribute="K_m_d", refine=1)
     assert ar.shape == (74, 64)
     assert ar.mask.sum() == 950
     ar = grid.array_from_vector(

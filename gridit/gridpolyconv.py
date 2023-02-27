@@ -9,10 +9,9 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from gridit.display import shorten
+from gridit.array_from import GridVectorData
 from gridit.grid import Grid
 from gridit.logger import get_logger, disable_logger
-from gridit.spatial import is_same_crs
 
 
 def month_number(txt):
@@ -204,21 +203,15 @@ class GridPolyConv:
             If fiona and/or rasterio is not installed.
 
         """
-        if logger is None:
-            logger = get_logger(__package__)
-        logger.info("creating grid-polygon conversion from vector file")
         try:
-            import fiona
             from affine import Affine
             from rasterio import features
             from rasterio.dtypes import get_minimum_dtype
         except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "from_grid_vector requires fiona and rasterio")
+            raise ModuleNotFoundError("from_grid_vector requires rasterio")
+
         if not isinstance(grid, Grid):
             raise ValueError("grid must be an instance of Grid")
-        grid_transform = grid.transform
-        grid_crs = grid.projection
         if not isinstance(refine, int):
             raise ValueError("refine must be int")
         elif refine < 1:
@@ -229,74 +222,25 @@ class GridPolyConv:
                 raise ValueError("max_levels must be int")
             elif max_levels < 1:
                 raise ValueError("max_levels must be >= 1")
-        logger.info("reading polygon: %s", fname)
-        if layer is None:
-            layers = fiona.listlayers(fname)
-            if len(layers) > 1:
-                logger.warning(
-                    "choosing the first of %d layers: %s", len(layers), layers)
-                layer = layers[0]
-        with fiona.open(fname, "r", layer=layer) as ds:
-            if "Polygon" not in ds.schema["geometry"]:
-                logger.error(
-                    "expected [Multi]Polygon, found %s", ds.schema["geometry"])
-            ds_crs = ds.crs_wkt
-            do_transform = False
-            if not grid_crs:
-                grid_crs = ds_crs
-                logger.info(
-                    "assuming same projection: %s", shorten(grid_crs, 60))
-            elif is_same_crs(grid_crs, ds_crs):
-                grid_crs = ds_crs
-                logger.info(
-                    "same projection: %s", shorten(grid_crs, 60))
-            else:
-                do_transform = True
-                from fiona.transform import transform_geom
-                from shapely.geometry import box, mapping, shape
-                logger.info(
-                    "geometries will be transformed from %s to %s",
-                    shorten(ds_crs, 60), shorten(grid_crs, 60))
-            attributes = list(ds.schema["properties"].keys())
-            if attribute not in attributes:
-                raise KeyError(
-                    f"could not find '{attribute}' in {attributes}")
-            geoms = []
-            vals = []
-            grid_bounds = grid.bounds
-            if do_transform:
-                grid_box = box(*grid_bounds)
-                # TODO: does this make sense?
-                buf = grid.resolution * np.average(grid.shape) * 0.15
-                grid_box_t = shape(transform_geom(
-                    grid_crs, ds_crs,
-                    mapping(grid_box.buffer(buf)))).buffer(buf)
-                kwargs = {"bbox": grid_box_t.bounds}
-                logger.info(
-                    "transforming features in bbox %s", grid_box_t.bounds)
-                for _, feat in ds.items(**kwargs):
-                    geom = transform_geom(ds_crs, grid_crs, feat["geometry"])
-                    if not grid_box.intersects(shape(geom)):
-                        continue
-                    val = feat["properties"][attribute]
-                    geoms.append(geom)
-                    vals.append(val)
-            else:
-                for _, feat in ds.items(bbox=grid_bounds):
-                    geom = feat["geometry"]
-                    val = feat["properties"][attribute]
-                    geoms.append(geom)
-                    vals.append(val)
-        if not vals:
+        if logger is None:
+            logger = get_logger(__package__)
+        logger.info("creating grid-polygon conversion from vector file")
+        vd = GridVectorData(grid, fname, layer, attribute)
+        if len(vd) == 0:
             raise ValueError("no features were found in grid extent")
+        if "polygon" not in vd.geom_type.lower():
+                logger.error("expected [Multi]Polygon, found %s", vd.geom_type)
+        vals = vd.vals
+        vals_s = set(vals)
+        if len(vd.vals) != len(vals_s):
             raise ValueError(f"{attribute!r} values are not unique")
         # Generate mapping with sorted values and sequence starting from 1
         nodata = 0
-        vals_d = dict(enumerate(sorted(set(vals)), 1))
+        vals_d = dict(enumerate(sorted(vals_s), 1))
         poly_idx = list(vals_d.values())
         idx_vals = {v: k for k, v in vals_d.items()}
         idxs = list(map(idx_vals.get, vals))
-        geoms_idxs = list(zip(geoms, idxs))
+        geoms_idxs = list(zip(vd.geomds, idxs))
         if caching:
 
             def find_cache(dirname, fname):
@@ -347,21 +291,18 @@ class GridPolyConv:
                     logger.error("cannot read cache: %s", e)
                     os.remove(cache_path)
 
+        grid_transform = grid.transform
         idx_dtype = get_minimum_dtype(max(idxs))
-        msg = "rasterizing indexed %r to %s array"
-        msg_args = [attribute, idx_dtype]
+        logger.info(
+            "rasterizing indexed %r to %s array with refine factor %d",
+            attribute, idx_dtype, refine)
         if use_refine:
-            msg += " with refine factor %d"
-            msg_args.append(refine)
-            logger.info(msg, *tuple(msg_args))
             fine_shape = tuple(n * refine for n in grid.shape)
             fine_transform = grid_transform * Affine.scale(1. / refine)
             idx_ar = features.rasterize(
                 geoms_idxs, fine_shape, transform=fine_transform,
                 fill=nodata, dtype=idx_dtype, all_touched=False)
         else:
-            msg += " with no refine factor"
-            logger.info(msg, *tuple(msg_args))
             idx_ar = features.rasterize(
                 geoms_idxs, grid.shape, transform=grid_transform,
                 fill=nodata, dtype=idx_dtype, all_touched=False)
@@ -375,7 +316,7 @@ class GridPolyConv:
         elif uaridx_s.issubset(idxs_s):
             logger.info(
                 "subset %d of %d polygon indexes were rasterized",
-                len(uaridx_s), len(geoms))
+                len(uaridx_s), len(vd))
             missing_idx = idxs_s.difference(uaridx_s)
             if len(missing_idx) < 20:
                 plr = "" if len(missing_idx) == 1 else "s"
@@ -387,10 +328,11 @@ class GridPolyConv:
                 logger.info("missing %s polygon indexes", len(missing_idx))
         else:
             logger.error(
-                "from %d polygons, none were rasterized", len(geoms))
+                "from %d polygons, none were rasterized", len(vd))
 
         ar_count = None
         if use_refine:
+            from rasterio.crs import CRS
             from rasterio.enums import Resampling
             from rasterio.warp import reproject
 
@@ -403,6 +345,8 @@ class GridPolyConv:
                 frac_dtype = np.uint16
             else:
                 frac_dtype = np.uint8
+            # TODO: is there a better catch-all projection?
+            ds_crs = CRS.from_epsg(3857)
             # total counts of non-zero idx_ar per cell
             # total_ar_count = np.zeros(grid.shape, dtype=frac_dtype)
             # _ = reproject(
