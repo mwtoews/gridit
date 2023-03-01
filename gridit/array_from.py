@@ -498,5 +498,5 @@ def mask_from_vector(self, fname, *, layer=None):
     -------
     np.array
     """
-    ar = self.array_from_vector(fname, layer=layer)
+    ar = self.array_from_vector(fname, layer=layer, refine=1, all_touched=True)
     return ~ar.data.astype(bool)

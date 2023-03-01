@@ -531,12 +531,21 @@ def test_array_from_vector_different_projection():
 
 
 @requires_pkg("fiona", "rasterio")
-def test_mask_from_vector_layer(grid_from_vector_all):
-    mask = grid_from_vector_all.mask_from_vector(
+def test_mask_from_vector(grid_from_vector_all):
+    def check(ar):
+        assert ar.shape == (24, 18)
+        assert ar.dtype == "bool"
+        assert ar.sum() == 153
+
+    # use layer
+    mask1 = grid_from_vector_all.mask_from_vector(
         datadir, layer="mana_polygons")
-    assert mask.shape == (24, 18)
-    assert mask.dtype == "bool"
-    assert mask.sum() == 193
+    check(mask1)
+
+    # use path
+    mask2 = grid_from_vector_all.mask_from_vector(mana_polygons_path)
+    check(mask2)
+    np.testing.assert_array_equal(mask1, mask2)
 
 
 @requires_pkg("rasterio")
@@ -545,11 +554,3 @@ def test_mask_from_raster(grid_from_raster):
     assert mask.shape == (278, 209)
     assert mask.dtype == "bool"
     assert mask.sum() == 23782
-
-
-@requires_pkg("fiona", "rasterio")
-def test_mask_from_vector_all(grid_from_vector_all):
-    mask = grid_from_vector_all.mask_from_vector(mana_polygons_path)
-    assert mask.shape == (24, 18)
-    assert mask.dtype == "bool"
-    assert mask.sum() == 193
