@@ -15,7 +15,7 @@ def float32_is_also_float64(val):
     return val64 == val6432
 
 
-def write_raster(grid, array, fname: str, driver=None):
+def write_raster(grid, array, fname, driver=None):
     """Write array to a raster file format.
 
     Parameters
@@ -23,9 +23,9 @@ def write_raster(grid, array, fname: str, driver=None):
     grid : Grid
     array : array_like
         Array to write; must have 2-dimensions that match shape.
-    fname : str
+    fname : str or PathLike
         Output file to write.
-    driver : str or None (default)
+    driver : str, optional
         Raster driver. Default None will determine driver from fname.
 
     Raises
@@ -50,10 +50,16 @@ def write_raster(grid, array, fname: str, driver=None):
         "width": grid.shape[1],
         "height": grid.shape[0],
         "count": 1,
-        "dtype": array.dtype,
         "crs": grid.projection,
         "transform": grid.transform,
     }
+    if np.issubdtype(array.dtype, np.bool_):
+        grid.logger.debug("changing dtype from %s to uint8", array.dtype)
+        array = array.astype(np.uint8, copy=True)
+        if driver.lower() == "gtiff":
+            # write a smaller file
+            kwds["NBITS"] = "2"
+    kwds["dtype"] = array.dtype
     if np.ma.isMA(array):
         if array.mask.all():
             nodata = 0
@@ -63,8 +69,8 @@ def write_raster(grid, array, fname: str, driver=None):
             else:
                 nodata = array.max() + 1
         else:
+            nodata = array.fill_value
             if array.dtype == np.float32:
-                nodata = array.fill_value
                 if not float32_is_also_float64(nodata):
                     # TODO: any better way to find fill_value?
                     nodata = 3.28e9

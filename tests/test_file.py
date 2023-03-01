@@ -46,47 +46,100 @@ def grid_projection():
     return Grid(10, (20, 30), (1000.0, 2000.0), "EPSG:2193")
 
 
-def test_write_raster(tmp_path, grid_basic, grid_projection):
+@pytest.mark.parametrize("masked", [False, True])
+def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
     rasterio = pytest.importorskip("rasterio")
 
     ar_float32 = np.arange(20 * 30, dtype=np.float32).reshape((20, 30))
-    fname_float32 = tmp_path / "float32.tif"
-    grid_basic.write_raster(ar_float32, fname_float32)
-    with rasterio.open(fname_float32) as ds:
+    if masked:
+        ar_float32 = np.ma.array(ar_float32)
+    fname = tmp_path / "float32.tif"
+    grid_basic.write_raster(ar_float32, fname)
+    with rasterio.open(fname) as ds:
         assert not ds.crs
+        if masked:
+            assert ds.nodata == 3.28e9
+        else:
+            assert ds.nodata is None
         ar = ds.read()
         assert ar.dtype == np.float32
         assert ar.shape == (1, 20, 30)
         np.testing.assert_array_almost_equal(ar[0], ar_float32)
+
+    ar_float64 = np.arange(20 * 30, dtype=np.float64).reshape((20, 30))
+    if masked:
+        ar_float64 = np.ma.array(ar_float64)
+        ar_float64.fill_value = -1.0
+    fname = tmp_path / "float64.tif"
+    grid_basic.write_raster(ar_float64, fname)
+    with rasterio.open(fname) as ds:
+        assert not ds.crs
+        if masked:
+            assert ds.nodata == -1.0
+        else:
+            assert ds.nodata is None
+        ar = ds.read()
+        assert ar.dtype == np.float64
+        assert ar.shape == (1, 20, 30)
+        np.testing.assert_array_almost_equal(ar[0], ar_float64)
+
+    ar_uint16 = np.arange(20 * 30, dtype=np.uint16).reshape((20, 30)) + 1
+    if masked:
+        ar_uint16 = np.ma.array(ar_uint16)
+    fname = tmp_path / "uint8.tif"
+    grid_basic.write_raster(ar_uint16, fname)
+    with rasterio.open(fname) as ds:
+        assert ds.crs is None
+        if masked:
+            assert ds.nodata == 0
+        else:
+            assert ds.nodata is None
+        ar = ds.read()
+        assert ar.dtype == np.uint16
+        assert ar.shape == (1, 20, 30)
+        np.testing.assert_array_almost_equal(ar[0], ar_uint16)
 
     ar_uint16 = np.arange(20 * 30, dtype=np.uint16).reshape((20, 30))
-    fname_float32 = tmp_path / "float32.tif"
-    grid_basic.write_raster(ar_float32, fname_float32)
-    with rasterio.open(fname_float32) as ds:
-        assert ds.crs is None
-        assert ds.nodata is None
-        ar = ds.read()
-        assert ar.dtype == np.float32
-        assert ar.shape == (1, 20, 30)
-        np.testing.assert_array_almost_equal(ar[0], ar_float32)
-
-    ar_uint16 = np.ma.masked_greater(
-        np.arange(20 * 30, dtype=np.uint16).reshape((20, 30)), 450)
-    fname_uint16 = tmp_path / "uint16.tif"
-    grid_projection.write_raster(ar_uint16, fname_uint16)
-    with rasterio.open(fname_uint16) as ds:
+    if masked:
+        ar_uint16 = np.ma.masked_greater(ar_uint16, 450)
+    fname = tmp_path / "uint16.tif"
+    grid_projection.write_raster(ar_uint16, fname)
+    with rasterio.open(fname) as ds:
         assert ds.crs is not None
-        assert ds.nodata == 451
+        if masked:
+            assert ds.nodata == 451
+        else:
+            assert ds.nodata is None
         ar = ds.read()
         assert ar.dtype == np.uint16
         assert ar.shape == (1, 20, 30)
         np.testing.assert_array_equal(ar[0], ar_uint16)
 
+    ar_bool = np.eye(20, 30, dtype=bool)
+    if masked:
+        ar_bool = np.ma.array(ar_bool)
+    fname = tmp_path / "bool.tif"
+    grid_basic.write_raster(ar_bool, fname)
+    with rasterio.open(fname) as ds:
+        assert ds.crs is None
+        if masked:
+            assert ds.nodata == 2
+        else:
+            assert ds.nodata is None
+        assert ds.tags(1, ns="IMAGE_STRUCTURE")["NBITS"] == "2"
+        ar = ds.read()
+        assert ar.dtype == np.uint8
+        assert ar.shape == (1, 20, 30)
+        np.testing.assert_array_almost_equal(ar[0], ar_bool)
+
     # errors
+    ar1d = np.ones(20 * 30)
+    if masked:
+        ar1d = np.ma.array(ar1d)
     with pytest.raises(ValueError, match="array must have two-dimensions"):
-        grid_basic.write_raster(np.ones(20 * 30), "out.tif")
+        grid_basic.write_raster(ar1d, "out.tif")
     with pytest.raises(ValueError, match="array must have two-dimensions"):
-        grid_basic.write_raster(np.ones(20 * 30).reshape((1, 20, 30)), "x.tif")
+        grid_basic.write_raster(ar1d.reshape((1, 20, 30)), "out.tif")
 
 
 def test_write_vector(tmp_path, grid_basic, grid_projection):
