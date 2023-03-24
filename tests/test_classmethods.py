@@ -74,8 +74,17 @@ def test_grid_from_vector_point():
     assert grid == expected
 
     # filter
+    grid = Grid.from_vector(points_path, 250, {"id": [5, 9]})
+    expected = Grid(250.0, (19, 7), (1810500.0, 5873750.0), grid.projection)
+    assert grid == expected
+
     grid = Grid.from_vector(points_path, 250, {"id": 5})
     expected = Grid(250.0, (1, 1), (1812000.0, 5869250.0), grid.projection)
+    assert grid == expected
+
+    # filter + buffer
+    grid = Grid.from_vector(points_path, 250, {"id": 5}, buffer=240)
+    expected = Grid(250.0, (2, 2), (1811750.0, 5869250.0), grid.projection)
     assert grid == expected
 
 
@@ -110,10 +119,27 @@ def test_grid_from_vector_line():
 
     # filter
     grid = Grid.from_vector(lines_path, 250, {"StreamOrde": 5})
-    expected = Grid(250.0, (4, 3), (1811500.0, 5877000.0), grid.projection)
+    expected = Grid(250.0, (19, 14), (1808750.0, 5877000.0), grid.projection)
+    assert grid == expected
+
+    grid = Grid.from_vector(lines_path, 250, {"StreamOrde": [4, 5]})
+    expected = Grid(250.0, (28, 41), (1804750.0, 5877000.0), grid.projection)
     assert grid == expected
 
     # buffer
     grid = Grid.from_vector(lines_path, 250, buffer=500)
     expected = Grid(250.0, (70, 66), (1803000.0, 5878750.0), grid.projection)
+    assert grid == expected
+
+
+@requires_pkg("fiona")
+def test_grid_from_vector_filter_sql_where():
+    import fiona
+
+    if fiona.__version__[0:3] < "1.9":
+        pytest.skip("Fiona 1.9 or later required to use SQL WHERE")
+
+    # filter
+    grid = Grid.from_vector(lines_path, 250, "StreamOrde>=5")
+    expected = Grid(250.0, (19, 14), (1808750.0, 5877000.0), grid.projection)
     assert grid == expected

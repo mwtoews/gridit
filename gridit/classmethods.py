@@ -143,8 +143,11 @@ def from_vector(
         Input file, such as a shapefile.
     resolution : float
         A grid resolution, e.g. 250.0 for 250m x 250m
-    filter : dict, optional
-        Property filter criteria.
+    filter : dict, str, optional
+        Property filter criteria. For example ``{"id": 4}`` to select one
+        feature with attribute "id" value 4. Or ``{"id": [4, 7, 19]}`` to
+        select features with several values. A SQL WHERE statement can also be
+        used if Fiona 1.9 or later is installed.
     buffer : float, default 0.0
         Add buffer to extents of vector data.
     layer : int or str, default None
@@ -173,38 +176,13 @@ def from_vector(
     with fiona.open(fname, "r", layer=layer) as ds:
         projection = ds.crs_wkt
         if filter:
-            for f in ds:
-                r = []
-                for k in filter.keys():
-                    r.append(f["properties"].get(k, "") == filter[k])
-                if len(r) > 0 and all(r):
-                    break
-            else:
-                raise ValueError(
-                    f"could not find {filter} in {fname} layer {layer}")
-            geom_type = f["geometry"]["type"]
-            if geom_type == "Polygon":
-                ar = np.array(f["geometry"]["coordinates"])
-                assert ar.ndim == 3
-                assert ar.shape[2] >= 2
-                xcs = ar[:, :, 0]
-                ycs = ar[:, :, 1]
-            elif geom_type == "LineString":
-                ar = np.array(f["geometry"]["coordinates"])
-                assert ar.ndim == 2
-                assert ar.shape[1] >= 2
-                xcs = ar[:, 0]
-                ycs = ar[:, 1]
-            elif geom_type == "Point":
-                ar = np.array(f["geometry"]["coordinates"])
-                assert ar.ndim == 1
-                assert ar.shape[0] >= 2
-                xcs = ar[0]
-                ycs = ar[1]
-            else:
-                raise NotImplementedError(
-                    f"unexpected geometry type {geom_type}")
-            bounds = xcs.min(), ycs.min(), xcs.max(), ycs.max()
+            from gridit.file import fiona_filter_collection
+
+            flt = fiona_filter_collection(ds, filter)
+            if len(flt) == 0:
+                logger.error("no features filtered with %s", filter)
+            bounds = flt.bounds
+            flt.close()
         else:  # full shapefile bounds
             bounds = ds.bounds
     shape, top_left = get_shape_top_left(bounds, resolution, buffer)

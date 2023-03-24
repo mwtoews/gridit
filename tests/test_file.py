@@ -2,8 +2,15 @@
 import pytest
 import numpy as np
 
+from .conftest import datadir
 from gridit import Grid
-from gridit.file import float32_is_also_float64, fiona_property_type
+from gridit.file import (
+    fiona_filter_collection,
+    fiona_property_type,
+    float32_is_also_float64,
+)
+
+points_path = datadir / "waitaku2_points.shp"
 
 
 def test_float32_is_also_float64():
@@ -246,3 +253,60 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         grid_basic.write_vector(ar2d.T, "out.shp", "val")
     with pytest.raises(ValueError, match="Unable to detect driver"):
         grid_basic.write_vector(ar2d, "out.nope", "val")
+
+
+def test_fiona_filter_collection():
+    fiona = pytest.importorskip("fiona")
+    expected_schema = {
+        "geometry": "Point",
+        "properties": {"id": "int:10"},
+    }
+    with fiona.open(points_path) as ds:
+        flt = fiona_filter_collection(ds, filter={"id": 0})
+        assert flt.schema == expected_schema
+        assert len(flt) == 0
+        assert flt.bounds == (0.0, 0.0, 0.0, 0.0)
+
+        flt = fiona_filter_collection(ds, filter={"id": 1})
+        assert flt.schema == expected_schema
+        assert len(flt) == 1
+        np.testing.assert_array_almost_equal(
+            flt.bounds,
+            (1814758.4763, 5871013.6156, 1814758.4763, 5871013.6156),
+            decimal=4,
+        )
+
+        flt = fiona_filter_collection(ds, filter={"id": [1, 8]})
+        assert flt.schema == expected_schema
+        assert len(flt) == 2
+        np.testing.assert_array_almost_equal(
+            flt.bounds,
+            (1812243.7372, 5871013.6156, 1814758.4763, 5876813.8657),
+            decimal=4,
+        )
+
+        if fiona.__version__[0:3] >= "1.9":
+            flt = fiona_filter_collection(ds, filter="id=2")
+            assert len(flt) == 1
+            np.testing.assert_array_almost_equal(
+                flt.bounds,
+                (1812459.1405, 5875971.5429, 1812459.1405, 5875971.5429),
+                decimal=4,
+            )
+
+            # errors
+            with pytest.raises(ValueError, match="SQL Expression Parsing Err"):
+                fiona_filter_collection(ds, filter="id==2")
+
+        else:
+            with pytest.raises(ValueError, match="filter str as SQL WHERE"):
+                fiona_filter_collection(ds, filter="id=2")
+
+        with pytest.raises(ValueError, match=r"ds must be fiona\.Collection"):
+            fiona_filter_collection(None, filter={"id": 1})
+
+        with pytest.raises(KeyError, match="cannot find filter keys"):
+            fiona_filter_collection(ds, filter={"ID": 1})
+
+    with pytest.raises(ValueError, match="ds is closed"):
+        fiona_filter_collection(ds, filter={"id": 1})
