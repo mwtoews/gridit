@@ -1,8 +1,16 @@
 """File methods."""
+from collections.abc import Iterable
 from pathlib import Path
 
 import numpy as np
 
+__all__ = [
+    "fiona_filter_collection",
+    "fiona_property_type",
+    "float32_is_also_float64",
+    "write_raster",
+    "write_vector",
+]
 
 def float32_is_also_float64(val):
     """Return True if float32 and float64 values are the same."""
@@ -232,3 +240,69 @@ def write_vector(
     with fiona.open(fname, "w", **kwargs) as ds:
         ds.writerecords(recs)
     grid.logger.info("wrote %d features", idxs.size)
+
+
+def fiona_filter_collection(ds, filter):
+    """Returns Fiona collection with applied filter.
+
+    Parameters
+    ----------
+    ds : fiona.Collection
+        Input data source
+    filter : dict, str
+        Property filter criteria. For example ``{"id": 4}`` to select one
+        feature with attribute "id" value 4. Or ``{"id": [4, 7, 19]}`` to
+        select features with several values. A SQL WHERE statement can also be
+        used if Fiona 1.9 or later is installed.
+
+    Returns
+    -------
+    fiona.Collection
+
+    Raises
+    ------
+    ModuleNotFoundError
+        If fiona is not installed.
+    """
+    try:
+        import fiona
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError("fiona_filter_collection requires fiona")
+    if not isinstance(ds, fiona.Collection):
+        raise ValueError(f"ds must be fiona.Collection; found {type(ds)}")
+    elif ds.closed:
+        raise ValueError("ds is closed")
+    flt = fiona.io.MemoryFile().open(
+        driver=ds.driver, schema=ds.schema, crs=ds.crs)
+    if isinstance(filter, dict):
+        # check that keys are found in datasource
+        filter_keys = list(filter.keys())
+        ds_attrs = list(ds.schema["properties"].keys())
+        if not set(filter_keys).issubset(ds_attrs):
+            not_found = set(filter_keys).difference(ds_attrs)
+            raise KeyError(
+                f"cannot find filter keys: {not_found}; "
+                f"choose from data source attributes: {ds_attrs}")
+        found = 0
+        for feat in ds:
+            for attr, filt_val in filter.items():
+                feat_val = feat["properties"][attr]
+                if (isinstance(filt_val, Iterable)
+                        and not isinstance(filt_val, str)):
+                    for fv in filt_val:
+                        if feat_val == fv:
+                            found += 1
+                            flt.write(feat)
+                else:
+                    if feat_val == filt_val:
+                        found += 1
+                        flt.write(feat)
+    elif isinstance(filter, str):
+        if fiona.__version__[0:3] < "1.9":
+            raise ValueError(
+                "Fiona 1.9 or later required to use filter str as SQL WHERE")
+        for feat in ds.filter(where=filter):
+            flt.write(feat)
+    else:
+        raise ValueError("filter must be a dict or str")
+    return flt

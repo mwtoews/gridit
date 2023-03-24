@@ -27,6 +27,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["gridit[test,optional]"]
 optional = [
     "fiona",
     "flopy",
