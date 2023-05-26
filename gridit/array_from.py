@@ -144,13 +144,17 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
     """
     try:
         import rasterio
+        from rasterio.crs import CRS
         from rasterio.enums import Resampling
         from rasterio.warp import reproject
     except ModuleNotFoundError:
         raise ModuleNotFoundError("array_from_raster requires rasterio")
     self.logger.info("reading array from raster: %s, band %s", fname, bidx)
     with rasterio.open(fname, "r") as ds:
-        ds_crs = ds.crs.to_wkt()
+        if ds.crs is None:
+            ds_crs = None
+        else:
+            ds_crs = ds.crs.to_wkt()
         if ds.transform == self.transform and ds.shape == self.shape:
             self.logger.info(
                 "source raster matches grid info; reading full array")
@@ -193,13 +197,18 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         self.logger.info("using %s resampling method", resampling)
         grid_crs = self.projection
         if not grid_crs:
-            grid_crs = ds_crs
-            self.logger.info(
-                "assuming same projection: %s", shorten(grid_crs, 60))
+            if ds_crs:
+                grid_crs = ds_crs
+                self.logger.info(
+                    "assuming same projection: %s", shorten(grid_crs, 60))
+            else:
+                # TODO: is there a better catch-all projection?
+                grid_crs = ds_crs = CRS.from_epsg(3857)
+
         _ = reproject(
             band, ar.data,
             src_transform=ds.transform, dst_transform=self.transform,
-            src_crs=ds.crs, dst_crs=grid_crs,
+            src_crs=ds_crs, dst_crs=grid_crs,
             dst_nodata=ds.nodata,
             resampling=resampling)
         if ds.nodata is not None:
