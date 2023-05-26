@@ -55,6 +55,9 @@ Repository = "https://github.com/mwtoews/gridit"
 testpaths = [
     "tests",
 ]
+filterwarnings = [
+    "ignore:distutils Version classes are deprecated:DeprecationWarning:numexpr",
+]
 
 [tool.setuptools.packages.find]
 include = [

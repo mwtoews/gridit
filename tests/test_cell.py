@@ -144,12 +144,10 @@ def test_cell_geodataframe():
     assert gdf.area.min() == 2500.0
     assert list(gdf.columns) == ["geometry", "row", "col"]
     pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
-    pd.testing.assert_series_equal(
-        gdf["row"],
-        pd.Series(np.repeat(np.arange(2), 3), name="row"))
-    pd.testing.assert_series_equal(
-        gdf["col"],
-        pd.Series(np.tile(np.arange(3), 2), name="col"))
+    ra_row = pd.Series(np.repeat(np.arange(2), 3).astype(np.int64), name="row")
+    ta_col = pd.Series(np.tile(np.arange(3), 2).astype(np.int64), name="col")
+    pd.testing.assert_series_equal(gdf["row"], ra_row)
+    pd.testing.assert_series_equal(gdf["col"], ta_col)
 
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
     gdf = grid.cell_geodataframe(order="F")
@@ -157,12 +155,10 @@ def test_cell_geodataframe():
     assert gdf.shape == (6, 3)
     assert list(gdf.columns) == ["geometry", "row", "col"]
     pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
-    pd.testing.assert_series_equal(
-        gdf["row"],
-        pd.Series(np.tile(np.arange(2), 3), name="row"))
-    pd.testing.assert_series_equal(
-        gdf["col"],
-        pd.Series(np.repeat(np.arange(3), 2), name="col"))
+    ta_row = pd.Series(np.tile(np.arange(2), 3).astype(np.int64), name="row")
+    ra_col = pd.Series(np.repeat(np.arange(3), 2).astype(np.int64), name="col")
+    pd.testing.assert_series_equal(gdf["row"], ta_row)
+    pd.testing.assert_series_equal(gdf["col"], ra_col)
 
     ar = np.arange(6).reshape(grid.shape) * 2.0 + 1
     # Values, mask with order options
@@ -179,19 +175,11 @@ def test_cell_geodataframe():
         pd.testing.assert_series_equal(
             gdf["a"], pd.Series(ar.ravel(order=order), name="a"))
         if order == "C":
-            pd.testing.assert_series_equal(
-                gdf["row"],
-                pd.Series(np.repeat(np.arange(2), 3), name="row"))
-            pd.testing.assert_series_equal(
-                gdf["col"],
-                pd.Series(np.tile(np.arange(3), 2), name="col"))
+            pd.testing.assert_series_equal(gdf["row"], ra_row)
+            pd.testing.assert_series_equal(gdf["col"], ta_col)
         elif order == "F":
-            pd.testing.assert_series_equal(
-                gdf["row"],
-                pd.Series(np.tile(np.arange(2), 3), name="row"))
-            pd.testing.assert_series_equal(
-                gdf["col"],
-                pd.Series(np.repeat(np.arange(3), 2), name="col"))
+            pd.testing.assert_series_equal(gdf["row"], ta_row)
+            pd.testing.assert_series_equal(gdf["col"], ra_col)
         gdf = grid.cell_geodataframe(
             order=order, mask=np.eye(2, 3, 1), values={"a": ar})
         assert gdf.shape == (4, 4)

@@ -728,12 +728,13 @@ class GridPolyConv:
             if (set(time_stats_l).intersection(["min", "max", "median"]) and
                     time_window):
                 # year totals are only needed for min, max, median
-                year = time.dt.year
+                year = xarray.DataArray(time.dt.year)
                 if start_month > end_month:
-                    year[month < start_month] -= 1
+                    # Recreate year
                     yp = year.to_pandas()
-                    year = year.astype(str)
-                    year[:] = yp.astype(str) + "-" + (yp + 1).astype(str)
+                    yp[month < start_month] -= 1
+                    data = yp.astype(str) + "-" + (yp + 1).astype(str)
+                    year = xarray.DataArray(data, dims=year.dims, name="year")
                     bogus = "bogus"
                 else:
                     bogus = -1
