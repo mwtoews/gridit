@@ -48,6 +48,7 @@ def test_grid_from_modflow_classic():
 
 @requires_pkg("flopy")
 def test_grid_from_modflow_6(caplog):
+    from gridit.modflow import get_modflow_model
     expected = Grid(1000.0, (18, 17), (1802000.0, 5879000.0))
 
     with caplog.at_level(logging.WARNING):
@@ -69,6 +70,13 @@ def test_grid_from_modflow_6(caplog):
     # also rasises logger warning
     grid = Grid.from_modflow(modflow_dir)
     assert grid == expected
+
+    # test with modelgrid object
+    model = get_modflow_model(modflow_dir / "mfsim.nam")
+    grid = Grid.from_modflow(model.modelgrid)
+    assert grid.projection == ""
+    assert grid.shape == (18, 17)
+    assert grid.resolution == 1000.
 
 
 @requires_pkg("flopy")

@@ -12,6 +12,11 @@ def get_modflow_model(model, model_name=None, logger=None):
     """Return model object from str or Path."""
     import flopy
 
+    if hasattr(model, "xoffset"):
+        from types import SimpleNamespace
+        tmpobj = SimpleNamespace()
+        tmpobj.modelgrid = model
+        return tmpobj  # dummy object with a modelgrid atrib
     if hasattr(model, "modelgrid"):
         return model
     elif not isinstance(model, (str, Path)):
@@ -68,7 +73,7 @@ def from_modflow(
 
     Parameters
     ----------
-    model : str, Path, flopy.modflow.Modflow, or flopy.mf6.mfmodel.MFModel
+    model : str, Path, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.grid
         MODFLOW model specified either as a FloPy object, or path to
         a MODFLOW file.
     model_name : str or None (default)
@@ -116,10 +121,7 @@ def from_modflow(
         else:
             projection = ""
     # also cache mask while we are here
-    if hasattr(model, "bas6"):
-        domain = model.bas6.ibound.array
-    else:
-        domain = model.dis.idomain.array
+    domain = modelgrid.idomain
     mask = (domain == 0).all(0)
     mask_cache[mask_cache_key] = mask
     return cls(
