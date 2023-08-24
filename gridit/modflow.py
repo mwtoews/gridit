@@ -73,7 +73,7 @@ def from_modflow(
 
     Parameters
     ----------
-    model : str, Path, flopy.modflow.Modflow, or flopy.mf6.mfmodel.MFModel
+    model : str, Path, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.grid
         MODFLOW model specified either as a FloPy object, or path to
         a MODFLOW file.
     model_name : str or None (default)
