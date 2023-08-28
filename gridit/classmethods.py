@@ -67,6 +67,22 @@ def from_bbox(
         EPSG:2193 or a WKT string.
     logger : logging.Logger, optional
         Logger to show messages.
+
+    Examples
+    --------
+    From user-supplied bounds:
+
+    >>> from gridit import Grid
+    >>> grid1 = Grid.from_bbox(1620000, 5324000, 1685000, 5360000,
+    ...                       200, projection="EPSG:2193")
+    >>> grid1
+    <Grid: resolution=200.0, shape=(180, 325), top_left=(1620000.0, 5360000.0) />
+
+    From shapely geometry:
+    >>> from shapely import wkt
+    >>> domain = wkt.loads("POLYGON ((1685000 5359000, 1665000 5324000, 1620000 5360000, 1685000 5359000))")
+    >>> grid2 = Grid.from_bbox(*domain.bounds, 200, projection="EPSG:2193")
+    >>> assert grid1 == grid2
     """
     if logger is None:
         logger = get_logger(cls.__name__)
