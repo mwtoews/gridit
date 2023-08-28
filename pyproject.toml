@@ -57,6 +57,7 @@ testpaths = [
 ]
 filterwarnings = [
     "ignore:distutils Version classes are deprecated:DeprecationWarning:numexpr",
+    "ignore:numpy.ndarray size changed:RuntimeWarning",
 ]
 
 [tool.setuptools.packages.find]

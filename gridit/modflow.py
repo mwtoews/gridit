@@ -2,7 +2,7 @@
 
 from importlib.util import find_spec
 from pathlib import Path
-from warnings import warn
+from warnings import catch_warnings, filterwarnings, warn
 
 from gridit.grid import mask_cache
 from gridit.logger import get_logger
@@ -58,9 +58,11 @@ def get_modflow_model(model, model_name=None, logger=None):
         setattr(model, "tdis", sim.tdis)  # this is a bit of a hack
         return model
     elif pth.is_file():  # assume 'classic' MOFLOW file
-        model = flopy.modflow.Modflow.load(
-            pth.name, model_ws=str(pth.parent), load_only=["dis", "bas6"],
-            check=False, verbose=False)
+        with catch_warnings():
+            filterwarnings("ignore", category=UserWarning)
+            model = flopy.modflow.Modflow.load(
+                pth.name, model_ws=str(pth.parent), load_only=["dis", "bas6"],
+                check=False, verbose=False, forgive=True)
         return model
     raise ValueError(
         f"cannot determine how to read MODFLOW model '{pth}'")

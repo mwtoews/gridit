@@ -72,7 +72,8 @@ def test_grid_from_modflow_6(caplog):
     assert grid == expected
 
     # test with modelgrid object
-    model = get_modflow_model(modflow_dir / "mfsim.nam")
+    with pytest.warns(UserWarning, match="model name should be specified"):
+        model = get_modflow_model(modflow_dir / "mfsim.nam")
     grid = Grid.from_modflow(model.modelgrid)
     assert grid.projection == ""
     assert grid.shape == (18, 17)
