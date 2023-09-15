@@ -1,9 +1,8 @@
 import pytest
 
-from .conftest import datadir, requires_pkg
-
 from gridit import Grid
 
+from .conftest import datadir, requires_pkg
 
 mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
@@ -12,26 +11,22 @@ points_path = datadir / "waitaku2_points.shp"
 
 
 def test_grid_from_bbox():
-    grid = Grid.from_bbox(
-        1748762.8, 5448908.9, 1749509, 5449749, 25)
+    grid = Grid.from_bbox(1748762.8, 5448908.9, 1749509, 5449749, 25)
     expected = Grid(25.0, (34, 31), (1748750.0, 5449750.0))
     assert grid == expected
     assert grid.bounds == (1748750.0, 5448900.0, 1749525.0, 5449750.0)
 
 
 def test_grid_from_bbox_point():
-    grid = Grid.from_bbox(
-        1748762.8, 5448908.9, 1748762.8, 5448908.9, 25)
+    grid = Grid.from_bbox(1748762.8, 5448908.9, 1748762.8, 5448908.9, 25)
     expected = Grid(25.0, (1, 1), (1748750.0, 5448925.0))
     assert grid == expected
     assert grid.bounds == (1748750.0, 5448900.0, 1748775.0, 5448925.0)
 
 
 def test_grid_from_bbox_buffer():
-    grid = Grid.from_bbox(
-        1748762.8, 5448908.9, 1749509, 5449749, 25, 20, "EPSG:2193")
-    expected = Grid(
-        25.0, (35, 31), (1748750.0, 5449775.0), "EPSG:2193")
+    grid = Grid.from_bbox(1748762.8, 5448908.9, 1749509, 5449749, 25, 20, "EPSG:2193")
+    expected = Grid(25.0, (35, 31), (1748750.0, 5449775.0), "EPSG:2193")
     assert grid == expected
 
 

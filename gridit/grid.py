@@ -26,19 +26,27 @@ class Grid:
         Affine transformation object; requires affine.
 
     """
-    from gridit.classmethods import from_bbox, from_raster, from_vector
+
     from gridit.array_from import (
-        array_from_array, array_from_raster, array_from_vector,
-        mask_from_raster, mask_from_vector
+        array_from_array,
+        array_from_raster,
+        array_from_vector,
+        mask_from_raster,
+        mask_from_vector,
     )
-    from gridit.cell import cell_geoms, cell_geoseries, cell_geodataframe
-    from gridit.modflow import from_modflow, mask_from_modflow
+    from gridit.cell import cell_geodataframe, cell_geoms, cell_geoseries
+    from gridit.classmethods import from_bbox, from_raster, from_vector
     from gridit.file import write_raster, write_vector
+    from gridit.modflow import from_modflow, mask_from_modflow
 
     def __init__(
-            self, resolution: float, shape: tuple,
-            top_left: tuple = (0.0, 0.0), projection: str = "", logger=None):
-
+        self,
+        resolution: float,
+        shape: tuple,
+        top_left: tuple = (0.0, 0.0),
+        projection: str = "",
+        logger=None,
+    ):
         if logger is None:
             from gridit.logger import get_logger
 
@@ -76,8 +84,7 @@ class Grid:
 
     def __repr__(self):
         """Return string representation of object."""
-        content = ", ".join(
-            f"{k}={v}" for k, v in self if k != "projection")
+        content = ", ".join(f"{k}={v}" for k, v in self if k != "projection")
         return f"<{self.__class__.__name__}: {content} />"
 
     @property

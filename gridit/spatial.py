@@ -32,7 +32,7 @@ def is_same_crs(wkt1, wkt2):
     from difflib import SequenceMatcher
 
     ratio = SequenceMatcher(None, wkt2, wkt1).ratio()
-    return ratio > 2/3.
+    return ratio > 2 / 3.0
 
 
 def flat_grid_intersect(this, other, method="vector"):
@@ -68,9 +68,7 @@ def flat_grid_intersect(this, other, method="vector"):
         import shapely
         from shapely.strtree import STRtree
 
-        logger.debug(
-            "using shapely-%s to peform vector intersect",
-            shapely.__version__)
+        logger.debug("using shapely-%s to peform vector intersect", shapely.__version__)
         if this_crs != other_crs:
             logger.warning("ignoring different CRS from grids")
         this_geoms = this.cell_geoms()
@@ -78,11 +76,10 @@ def flat_grid_intersect(this, other, method="vector"):
         classic_shapely = shapely.__version__.startswith("1.")
         same_resolution = this.resolution == other.resolution
         if classic_shapely:
-            logger.warning(
-                "recommend upgrading shapely>=2 for better performance")
+            logger.warning("recommend upgrading shapely>=2 for better performance")
         other_tree = STRtree(other_geoms)
-        this_area = this.resolution ** 2
-        other_area = other.resolution ** 2
+        this_area = this.resolution**2
+        other_area = other.resolution**2
 
         for this_idx, this_geom in enumerate(this_geoms):
             if classic_shapely:
@@ -107,8 +104,7 @@ def flat_grid_intersect(this, other, method="vector"):
                 other_geom = other_geoms[other_idx]
                 ina = other_geom.intersection(this_geom).area
                 if ina > 0.0:
-                    yield (this_idx, ina / this_area), \
-                        (other_idx, ina / other_area)
+                    yield (this_idx, ina / this_area), (other_idx, ina / other_area)
 
     elif method == "raster":
         import rasterio
@@ -116,8 +112,8 @@ def flat_grid_intersect(this, other, method="vector"):
         from rasterio.warp import reproject
 
         logger.debug(
-            "using rasterio-%s to peform raster intersect",
-            rasterio.__version__)
+            "using rasterio-%s to peform raster intersect", rasterio.__version__
+        )
 
         if this.resolution <= other.resolution:
             logger.info("resampling other grid to this")
@@ -134,8 +130,7 @@ def flat_grid_intersect(this, other, method="vector"):
         dst_frac = (dst.resolution / src.resolution) ** 2
         src_idx_size = src.shape[0] * src.shape[1]
         idx_dtype = rasterio.dtypes.get_minimum_dtype(src_idx_size + 1)
-        src_idx1_ar = \
-            np.arange(src_idx_size, dtype=idx_dtype).reshape(src.shape) + 1
+        src_idx1_ar = np.arange(src_idx_size, dtype=idx_dtype).reshape(src.shape) + 1
         dst_idx1_ar = np.empty(dst.shape, dtype=idx_dtype)
         src_crs = this_crs
         dst_crs = other_crs
@@ -144,11 +139,16 @@ def flat_grid_intersect(this, other, method="vector"):
             src_crs, dst_crs = dst_crs, src_crs
 
         _ = reproject(
-            src_idx1_ar, dst_idx1_ar,
-            src_transform=src.transform, dst_transform=dst.transform,
-            src_crs=src_crs, dst_crs=dst_crs,
-            src_nodata=nodata, dst_nodata=nodata,
-            resampling=Resampling.nearest)
+            src_idx1_ar,
+            dst_idx1_ar,
+            src_transform=src.transform,
+            dst_transform=dst.transform,
+            src_crs=src_crs,
+            dst_crs=dst_crs,
+            src_nodata=nodata,
+            dst_nodata=nodata,
+            resampling=Resampling.nearest,
+        )
 
         for src_idx, dst_idx1 in enumerate(dst_idx1_ar.flatten()):
             if dst_idx1 == nodata:

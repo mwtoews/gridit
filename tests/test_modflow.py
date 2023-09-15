@@ -1,10 +1,10 @@
 import logging
-import pytest
 
-from .conftest import datadir, requires_pkg
+import pytest
 
 from gridit import Grid
 
+from .conftest import datadir, requires_pkg
 
 modflow_dir = datadir / "modflow"
 
@@ -12,6 +12,7 @@ modflow_dir = datadir / "modflow"
 @requires_pkg("flopy")
 def test_get_modflow_model():
     import flopy
+
     from gridit.modflow import get_modflow_model
 
     m = get_modflow_model(modflow_dir / "h.nam")
@@ -49,6 +50,7 @@ def test_grid_from_modflow_classic():
 @requires_pkg("flopy")
 def test_grid_from_modflow_6(caplog):
     from gridit.modflow import get_modflow_model
+
     expected = Grid(1000.0, (18, 17), (1802000.0, 5879000.0))
 
     with caplog.at_level(logging.WARNING):
@@ -77,7 +79,7 @@ def test_grid_from_modflow_6(caplog):
     grid = Grid.from_modflow(model.modelgrid)
     assert grid.projection == ""
     assert grid.shape == (18, 17)
-    assert grid.resolution == 1000.
+    assert grid.resolution == 1000.0
 
 
 @requires_pkg("flopy")

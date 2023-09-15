@@ -1,17 +1,21 @@
 import numpy as np
 import pytest
 
-from .conftest import requires_pkg
-
 from gridit import Grid
+
+from .conftest import requires_pkg
 
 
 @requires_pkg("shapely")
 def test_cell_geoms():
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
     first_poly_coords = [
-        (1000.0, 2000.0), (1050.0, 2000.0), (1050.0, 1950.0),
-        (1000.0, 1950.0), (1000.0, 2000.0)]
+        (1000.0, 2000.0),
+        (1050.0, 2000.0),
+        (1050.0, 1950.0),
+        (1000.0, 1950.0),
+        (1000.0, 2000.0),
+    ]
     first_centroid = (1025.0, 1975.0)
     one_right_centroid = (1075.0, 1975.0)
     one_down_centroid = (1025.0, 1925.0)
@@ -164,16 +168,19 @@ def test_cell_geodataframe():
     # Values, mask with order options
     for order in ["C", "F"]:
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.ones(grid.shape), values={"a": ar})
+            order=order, mask=np.ones(grid.shape), values={"a": ar}
+        )
         assert gdf.shape == (0, 4)
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.zeros(grid.shape), values={"a": ar})
+            order=order, mask=np.zeros(grid.shape), values={"a": ar}
+        )
         assert gdf.shape == (6, 4)
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
         pd.testing.assert_series_equal(
-            gdf["a"], pd.Series(ar.ravel(order=order), name="a"))
+            gdf["a"], pd.Series(ar.ravel(order=order), name="a")
+        )
         if order == "C":
             pd.testing.assert_series_equal(gdf["row"], ra_row)
             pd.testing.assert_series_equal(gdf["col"], ta_col)
@@ -181,27 +188,34 @@ def test_cell_geodataframe():
             pd.testing.assert_series_equal(gdf["row"], ta_row)
             pd.testing.assert_series_equal(gdf["col"], ra_col)
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.eye(2, 3, 1), values={"a": ar})
+            order=order, mask=np.eye(2, 3, 1), values={"a": ar}
+        )
         assert gdf.shape == (4, 4)
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         if order == "C":
             idx = pd.Index([0, 2, 3, 4])
             pd.testing.assert_index_equal(gdf.index, idx)
             pd.testing.assert_series_equal(
-                gdf["row"], pd.Series([0, 0, 1, 1], name="row", index=idx))
+                gdf["row"], pd.Series([0, 0, 1, 1], name="row", index=idx)
+            )
             pd.testing.assert_series_equal(
-                gdf["col"], pd.Series([0, 2, 0, 1], name="col", index=idx))
+                gdf["col"], pd.Series([0, 2, 0, 1], name="col", index=idx)
+            )
             pd.testing.assert_series_equal(
-                gdf["a"], pd.Series([1.0, 5.0, 7.0, 9.0], name="a", index=idx))
+                gdf["a"], pd.Series([1.0, 5.0, 7.0, 9.0], name="a", index=idx)
+            )
         elif order == "F":
             idx = pd.Index([0, 1, 3, 4])
             pd.testing.assert_index_equal(gdf.index, idx)
             pd.testing.assert_series_equal(
-                gdf["row"], pd.Series([0, 1, 1, 0], name="row", index=idx))
+                gdf["row"], pd.Series([0, 1, 1, 0], name="row", index=idx)
+            )
             pd.testing.assert_series_equal(
-                gdf["col"], pd.Series([0, 0, 1, 2], name="col", index=idx))
+                gdf["col"], pd.Series([0, 0, 1, 2], name="col", index=idx)
+            )
             pd.testing.assert_series_equal(
-                gdf["a"], pd.Series([1.0, 7.0, 9.0, 5.0], name="a", index=idx))
+                gdf["a"], pd.Series([1.0, 7.0, 9.0, 5.0], name="a", index=idx)
+            )
 
     # errors
     with pytest.raises(ValueError, match="values must be dict"):

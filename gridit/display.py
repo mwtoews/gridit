@@ -4,7 +4,7 @@ __all__ = ["shorten", "print_array"]
 
 import numpy as np
 
-from gridit.logger import logging, get_logger
+from gridit.logger import get_logger, logging
 
 
 def shorten(text, width):
@@ -13,7 +13,7 @@ def shorten(text, width):
     if len(text) < width:
         return text
     else:
-        return text[:(width - 5)] + "[...]"
+        return text[: (width - 5)] + "[...]"
 
 
 def print_array(ar, logger=None):
@@ -27,7 +27,9 @@ def print_array(ar, logger=None):
         logger.info("all raster values are %s", uvals[0])
     try:
         import shutil
+
         from scipy import ndimage
+
         cols, rows = shutil.get_terminal_size((50, 20))
         # fit either width or height
         r2c = 2.0
@@ -54,7 +56,7 @@ def print_array(ar, logger=None):
         for h in range(height):
             for w in range(width):
                 if msk[h, w]:
-                    string += ' '
+                    string += " "
                 else:
                     string += col[int(im[h, w] * 15)]
             string += "\n"

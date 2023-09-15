@@ -1,8 +1,8 @@
 import pytest
 
-from .conftest import requires_pkg
-
 from gridit import Grid
+
+from .conftest import requires_pkg
 
 
 @pytest.fixture
@@ -21,8 +21,7 @@ def test_grid_basic(grid_basic):
 
 def test_grid_dict(grid_basic):
     grid_d = dict(grid_basic)
-    assert list(grid_d.keys()) == \
-        ["resolution", "shape", "top_left", "projection"]
+    assert list(grid_d.keys()) == ["resolution", "shape", "top_left", "projection"]
     assert grid_d["resolution"] == 10.0
     assert grid_d["shape"] == (20, 30)
     assert grid_d["top_left"] == (1000.0, 2000.0)
@@ -30,9 +29,7 @@ def test_grid_dict(grid_basic):
 
 
 def test_grid_repr(grid_basic):
-    expected = \
-        "<Grid: resolution=10.0, shape=(20, 30), "\
-        "top_left=(1000.0, 2000.0) />"
+    expected = "<Grid: resolution=10.0, shape=(20, 30), " "top_left=(1000.0, 2000.0) />"
     assert repr(grid_basic) == expected
     assert str(grid_basic) == expected
 
@@ -62,6 +59,4 @@ def test_grid_bounds(grid_basic):
 def test_grid_transform(grid_basic):
     from affine import Affine
 
-    assert grid_basic.transform == \
-        Affine(10.0, 0.0, 1000.0,
-               0.0, -10.0, 2000.0)
+    assert grid_basic.transform == Affine(10.0, 0.0, 1000.0, 0.0, -10.0, 2000.0)

@@ -1,14 +1,15 @@
 """Test file methods."""
-import pytest
 import numpy as np
+import pytest
 
-from .conftest import datadir
 from gridit import Grid
 from gridit.file import (
     fiona_filter_collection,
     fiona_property_type,
     float32_is_also_float64,
 )
+
+from .conftest import datadir
 
 points_path = datadir / "waitaku2_points.shp"
 
@@ -30,7 +31,7 @@ def test_fiona_property_type():
 
     assert fiona_property_type(np.array([0.0])) == "float:1"
     assert fiona_property_type(np.array([0.1], np.float32)) == "float:3.1"
-    assert fiona_property_type(np.array([-.1])) == "float:4.1"
+    assert fiona_property_type(np.array([-0.1])) == "float:4.1"
     assert fiona_property_type(np.array([123.0])) == "float:3"
     assert fiona_property_type(np.array([1e-12])) == "float:14.12"
     assert fiona_property_type(np.array([123.45])) == "float:6.2"
@@ -171,10 +172,17 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         if "geometries" in geom:
             del geom["geometries"]
         assert geom == {
-            "coordinates": [[
-                (1000.0, 2000.0), (1010.0, 2000.0), (1010.0, 1990.0),
-                (1000.0, 1990.0), (1000.0, 2000.0)]],
-            "type": "Polygon"}
+            "coordinates": [
+                [
+                    (1000.0, 2000.0),
+                    (1010.0, 2000.0),
+                    (1010.0, 1990.0),
+                    (1000.0, 1990.0),
+                    (1000.0, 2000.0),
+                ]
+            ],
+            "type": "Polygon",
+        }
         assert dict(rec["properties"]) == {
             "idx": 0,
             "row": 0,
@@ -182,8 +190,10 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
             "flt": 0.0,
         }
 
-    ar_uint16 = np.ma.masked_greater(
-        np.arange(20 * 30, dtype=np.uint16).reshape((20, 30)), 450) * 5
+    ar_uint16 = (
+        np.ma.masked_greater(np.arange(20 * 30, dtype=np.uint16).reshape((20, 30)), 450)
+        * 5
+    )
     fname_uint16 = tmp_path / "uint16.shp"
     grid_projection.write_vector(ar_uint16, fname_uint16, ["nums"])
     with fiona.open(fname_uint16) as ds:
@@ -202,10 +212,17 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         if "geometries" in geom:
             del geom["geometries"]
         assert geom == {
-            "coordinates": [[
-                (1000.0, 1850.0), (1010.0, 1850.0), (1010.0, 1840.0),
-                (1000.0, 1840.0), (1000.0, 1850.0)]],
-            "type": "Polygon"}
+            "coordinates": [
+                [
+                    (1000.0, 1850.0),
+                    (1010.0, 1850.0),
+                    (1010.0, 1840.0),
+                    (1000.0, 1840.0),
+                    (1000.0, 1850.0),
+                ]
+            ],
+            "type": "Polygon",
+        }
         assert dict(rec["properties"]) == {
             "idx": 450,
             "row": 15,

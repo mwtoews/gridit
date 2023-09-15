@@ -12,6 +12,7 @@ __all__ = [
     "write_vector",
 ]
 
+
 def float32_is_also_float64(val):
     """Return True if float32 and float64 values are the same."""
     val_str = str(val)
@@ -52,6 +53,7 @@ def write_raster(grid, array, fname, driver=None):
     grid.logger.info("writing raster file: %s", fname)
     if driver is None:
         from rasterio.drivers import driver_from_extension
+
         driver = driver_from_extension(fname)
     kwds = {
         "driver": driver,
@@ -120,8 +122,7 @@ def fiona_property_type(ar):
         return "str"
 
 
-def write_vector(
-        grid, array, fname, attribute, layer=None, driver=None, **kwargs):
+def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwargs):
     """Write array to a vector file format.
 
     Parameters
@@ -168,11 +169,9 @@ def write_vector(
         if array.shape[0] == 1:
             raise ValueError("attribute must be a str or a 1 item str list")
         else:
-            raise ValueError(
-                f"attribute must list of str with length {array.shape[0]}")
+            raise ValueError(f"attribute must list of str with length {array.shape[0]}")
     elif array.shape[-2:] != grid.shape:
-        raise ValueError(
-            f"last two dimensions of array shape must be {grid.shape}")
+        raise ValueError(f"last two dimensions of array shape must be {grid.shape}")
     grid.logger.info("writing vector file: %s with layer: %s", fname, layer)
     if driver is None:
         try:
@@ -187,8 +186,7 @@ def write_vector(
                         "shp": "ESRI Shapefile",
                     }[Path(path).suffix.lstrip(".").lower()]
                 except KeyError:
-                    raise ValueError(
-                        "Unable to detect driver. Please specify driver.")
+                    raise ValueError("Unable to detect driver. Please specify driver.")
 
         driver = driver_from_extension(fname)
         grid.logger.debug("driver from extension: %s", driver)
@@ -214,7 +212,7 @@ def write_vector(
                 "idx": idx.item(),
                 "row": row.item(),
                 "col": col.item(),
-            }
+            },
         }
         for attr_name, attr_val in zip(attribute, items[4:]):
             rec["properties"][attr_name] = attr_val.item()
@@ -272,8 +270,7 @@ def fiona_filter_collection(ds, filter):
         raise ValueError(f"ds must be fiona.Collection; found {type(ds)}")
     elif ds.closed:
         raise ValueError("ds is closed")
-    flt = fiona.io.MemoryFile().open(
-        driver=ds.driver, schema=ds.schema, crs=ds.crs)
+    flt = fiona.io.MemoryFile().open(driver=ds.driver, schema=ds.schema, crs=ds.crs)
     if isinstance(filter, dict):
         # check that keys are found in datasource
         filter_keys = list(filter.keys())
@@ -282,13 +279,13 @@ def fiona_filter_collection(ds, filter):
             not_found = set(filter_keys).difference(ds_attrs)
             raise KeyError(
                 f"cannot find filter keys: {not_found}; "
-                f"choose from data source attributes: {ds_attrs}")
+                f"choose from data source attributes: {ds_attrs}"
+            )
         found = 0
         for feat in ds:
             for attr, filt_val in filter.items():
                 feat_val = feat["properties"][attr]
-                if (isinstance(filt_val, Iterable)
-                        and not isinstance(filt_val, str)):
+                if isinstance(filt_val, Iterable) and not isinstance(filt_val, str):
                     for fv in filt_val:
                         if feat_val == fv:
                             found += 1
@@ -300,7 +297,8 @@ def fiona_filter_collection(ds, filter):
     elif isinstance(filter, str):
         if fiona.__version__[0:3] < "1.9":
             raise ValueError(
-                "Fiona 1.9 or later required to use filter str as SQL WHERE")
+                "Fiona 1.9 or later required to use filter str as SQL WHERE"
+            )
         for feat in ds.filter(where=filter):
             flt.write(feat)
     else:

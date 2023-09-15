@@ -1,6 +1,6 @@
 """Test spatial methods."""
 from gridit import Grid
-from gridit.spatial import is_same_crs, flat_grid_intersect
+from gridit.spatial import flat_grid_intersect, is_same_crs
 
 from .conftest import requires_pkg
 
@@ -62,10 +62,50 @@ def test_flat_grid_intersect():
     assert A.resolution == B.resolution
     ABv_s = set(flat_grid_intersect(A, B, "vector"))
     assert ((19, 1.0), (0, 1.0)) in ABv_s
-    exp_A_in_B = {19, 20, 21, 22, 23, 27, 28, 29, 30, 31, 35, 36, 37, 38, 39,
-                  43, 44, 45, 46, 47}
-    exp_B_in_A = {0, 1, 2, 3, 4, 8, 9, 10, 11, 12, 16, 17, 18, 19, 20, 24, 25,
-                  26, 27, 28}
+    exp_A_in_B = {
+        19,
+        20,
+        21,
+        22,
+        23,
+        27,
+        28,
+        29,
+        30,
+        31,
+        35,
+        36,
+        37,
+        38,
+        39,
+        43,
+        44,
+        45,
+        46,
+        47,
+    }
+    exp_B_in_A = {
+        0,
+        1,
+        2,
+        3,
+        4,
+        8,
+        9,
+        10,
+        11,
+        12,
+        16,
+        17,
+        18,
+        19,
+        20,
+        24,
+        25,
+        26,
+        27,
+        28,
+    }
     assert {itm[0][0] for itm in ABv_s} == exp_A_in_B
     assert {itm[1][0] for itm in ABv_s} == exp_B_in_A
     assert {itm[0][1] for itm in ABv_s} == {1.0}
@@ -84,7 +124,7 @@ def test_flat_grid_intersect():
     assert BAv_s == BAr_s
 
     # exact overlap, resolution is not a multiple
-    B = Grid(6.0 + 2/3., (9, 12), (1000, 2000.0))
+    B = Grid(6.0 + 2 / 3.0, (9, 12), (1000, 2000.0))
     assert A.bounds == B.bounds
     assert A.resolution * 2.0 / 3.0 == B.resolution
     ABv_s = set(flat_grid_intersect(A, B, "vector"))
@@ -129,8 +169,14 @@ def test_flat_grid_intersect():
     assert len(ABv_s) == 140
     ABr_s = set(flat_grid_intersect(A, B, "raster"))
     assert ABv_s != ABr_s
-    assert exp_A_in_B.difference({itm[0][0] for itm in ABr_s}) == \
-        {7, 15, 23, 31, 39, 47}
+    assert exp_A_in_B.difference({itm[0][0] for itm in ABr_s}) == {
+        7,
+        15,
+        23,
+        31,
+        39,
+        47,
+    }
     assert {itm[1][0] for itm in ABr_s} == exp_A_in_B
     assert {round(itm[0][1], 2) for itm in ABr_s} == {0.81}
     assert {itm[1][1] for itm in ABr_s} == {1.0}
@@ -145,7 +191,13 @@ def test_flat_grid_intersect():
     BAr_s = set(flat_grid_intersect(B, A, "raster"))
     assert BAv_s != BAr_s
     assert {itm[0][0] for itm in BAr_s} == exp_A_in_B
-    assert exp_A_in_B.difference({itm[1][0] for itm in BAr_s}) == \
-        {7, 15, 23, 31, 39, 47}
+    assert exp_A_in_B.difference({itm[1][0] for itm in BAr_s}) == {
+        7,
+        15,
+        23,
+        31,
+        39,
+        47,
+    }
     assert {itm[0][1] for itm in BAr_s} == {1.0}
     assert {round(itm[1][1], 2) for itm in BAr_s} == {0.81}

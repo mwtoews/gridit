@@ -2,16 +2,17 @@
 __all__ = ["GridPolyConv"]
 
 import calendar
-import numpy as np
 import os
 import pickle
 import re
 from collections import Counter
 from pathlib import Path
 
+import numpy as np
+
 from gridit.array_from import GridVectorData
 from gridit.grid import Grid
-from gridit.logger import get_logger, disable_logger
+from gridit.logger import disable_logger, get_logger
 
 
 def month_number(txt):
@@ -67,17 +68,16 @@ class GridPolyConv:
             except Exception:
                 raise ValueError(
                     "poly_idx must be a tuple or list-like; "
-                    f"found {type(poly_idx)!r}")
+                    f"found {type(poly_idx)!r}"
+                )
         if len(poly_idx) != len(set(poly_idx)):
             raise ValueError("poly_idx values are not unique")
         self.poly_idx = poly_idx
         # self.idx_d = dict(enumerate(poly_idx, 1))
         if not isinstance(idx_ar, np.ndarray):
-            raise ValueError(
-                f"idx_ar must be a numpy array; found {type(idx_ar)!r}")
+            raise ValueError(f"idx_ar must be a numpy array; found {type(idx_ar)!r}")
         elif not np.issubdtype(idx_ar.dtype, np.integer):
-            raise ValueError(
-                f"idx_ar dtype must integer-based; found {idx_ar.dtype!r}")
+            raise ValueError(f"idx_ar dtype must integer-based; found {idx_ar.dtype!r}")
         self.idx_ar = idx_ar.copy()
         self.idx_ar.flags.writeable = False
 
@@ -101,16 +101,16 @@ class GridPolyConv:
                 raise ValueError("ar_count must be specified if idx_ar is 3D")
             elif not isinstance(ar_count, np.ndarray):
                 raise ValueError(
-                    "ar_count must be a numpy array; "
-                    f"found {type(ar_count)!r}")
+                    "ar_count must be a numpy array; " f"found {type(ar_count)!r}"
+                )
             elif not np.issubdtype(ar_count.dtype, np.integer):
                 raise ValueError(
-                    "ar_count dtype must integer-based; "
-                    f"found {ar_count.dtype!r}")
+                    "ar_count dtype must integer-based; " f"found {ar_count.dtype!r}"
+                )
             elif ar_count.shape != idx_ar.shape:
                 raise ValueError(
-                    "ar_count shape must match idx_ar; "
-                    f"found {ar_count.shape}")
+                    "ar_count shape must match idx_ar; " f"found {ar_count.shape}"
+                )
             self.ar_count = ar_count.copy()
             self.ar_count.flags.writeable = False
             denominator = ar_count.sum(0)
@@ -124,8 +124,7 @@ class GridPolyConv:
             self.weight.flags.writeable = False
             self.mask = idx_ar[0] == 0
         else:
-            raise ValueError(
-                f"idx_ar ndim must be 2 or 3; found {idx_ar.ndim}")
+            raise ValueError(f"idx_ar ndim must be 2 or 3; found {idx_ar.ndim}")
         self.mask.flags.writeable = False
 
     def __eq__(self, other):
@@ -135,15 +134,15 @@ class GridPolyConv:
         elif self.poly_idx != getattr(other, "poly_idx", None):
             return False
         try:
-            np.testing.assert_array_equal(
-                self.idx_ar, getattr(other, "idx_ar", None))
+            np.testing.assert_array_equal(self.idx_ar, getattr(other, "idx_ar", None))
             return True
         except AssertionError:
             return False
         if self.ar_count is not None:
             try:
                 np.testing.assert_array_equal(
-                    self.ar_count, getattr(other, "ar_count", None))
+                    self.ar_count, getattr(other, "ar_count", None)
+                )
                 return True
             except AssertionError:
                 return False
@@ -167,9 +166,17 @@ class GridPolyConv:
 
     @classmethod
     def from_grid_vector(
-            cls, grid, fname: str, attribute: str, *, layer=None,
-            refine: int = 5, max_levels: int = 5, caching: int = 1,
-            logger=None):
+        cls,
+        grid,
+        fname: str,
+        attribute: str,
+        *,
+        layer=None,
+        refine: int = 5,
+        max_levels: int = 5,
+        caching: int = 1,
+        logger=None,
+    ):
         """Create grid-polygon conversion from a polygon vector file.
 
         Parameters
@@ -229,7 +236,7 @@ class GridPolyConv:
         if len(vd) == 0:
             raise ValueError("no features were found in grid extent")
         if "polygon" not in vd.geom_type.lower():
-                logger.error("expected [Multi]Polygon, found %s", vd.geom_type)
+            logger.error("expected [Multi]Polygon, found %s", vd.geom_type)
         vals = vd.vals
         vals_s = set(vals)
         if len(vd.vals) != len(vals_s):
@@ -247,9 +254,10 @@ class GridPolyConv:
                 if not dirname.is_dir():
                     return None
                 list_dir = [
-                    f.name for f in Path(dirname).iterdir()
-                    if f.is_file() and f.name[0] == "c"
-                    and f.suffix == ".gpc"]
+                    f.name
+                    for f in Path(dirname).iterdir()
+                    if f.is_file() and f.name[0] == "c" and f.suffix == ".gpc"
+                ]
                 if len(list_dir) == 0:
                     return None
                 elif fname in list_dir:
@@ -295,17 +303,30 @@ class GridPolyConv:
         idx_dtype = get_minimum_dtype(max(idxs))
         logger.info(
             "rasterizing indexed %r to %s array with refine factor %d",
-            attribute, idx_dtype, refine)
+            attribute,
+            idx_dtype,
+            refine,
+        )
         if use_refine:
             fine_shape = tuple(n * refine for n in grid.shape)
-            fine_transform = grid_transform * Affine.scale(1. / refine)
+            fine_transform = grid_transform * Affine.scale(1.0 / refine)
             idx_ar = features.rasterize(
-                geoms_idxs, fine_shape, transform=fine_transform,
-                fill=nodata, dtype=idx_dtype, all_touched=False)
+                geoms_idxs,
+                fine_shape,
+                transform=fine_transform,
+                fill=nodata,
+                dtype=idx_dtype,
+                all_touched=False,
+            )
         else:
             idx_ar = features.rasterize(
-                geoms_idxs, grid.shape, transform=grid_transform,
-                fill=nodata, dtype=idx_dtype, all_touched=False)
+                geoms_idxs,
+                grid.shape,
+                transform=grid_transform,
+                fill=nodata,
+                dtype=idx_dtype,
+                all_touched=False,
+            )
         uaridx = np.unique(idx_ar)
         if nodata in uaridx:
             uaridx = np.delete(uaridx, nodata)
@@ -316,19 +337,24 @@ class GridPolyConv:
         elif uaridx_s.issubset(idxs_s):
             logger.info(
                 "subset %d of %d polygon indexes were rasterized",
-                len(uaridx_s), len(vd))
+                len(uaridx_s),
+                len(vd),
+            )
             missing_idx = idxs_s.difference(uaridx_s)
             if len(missing_idx) < 20:
                 plr = "" if len(missing_idx) == 1 else "s"
                 logger.info(
                     "missing idx value%s: %s or %r value%s: %s",
-                    plr, sorted(missing_idx), attribute, plr,
-                    sorted(map(vals_d.get, missing_idx)))
+                    plr,
+                    sorted(missing_idx),
+                    attribute,
+                    plr,
+                    sorted(map(vals_d.get, missing_idx)),
+                )
             else:
                 logger.info("missing %s polygon indexes", len(missing_idx))
         else:
-            logger.error(
-                "from %d polygons, none were rasterized", len(vd))
+            logger.error("from %d polygons, none were rasterized", len(vd))
 
         ar_count = None
         if use_refine:
@@ -339,8 +365,8 @@ class GridPolyConv:
             # variables to zoom
             fx, fy = fine_shape
             fX, fY = np.ogrid[0:fx, 0:fy]
-            cX = fX//refine
-            cY = fY//refine
+            cX = fX // refine
+            cY = fY // refine
             if refine >= 16:
                 frac_dtype = np.uint16
             else:
@@ -361,23 +387,31 @@ class GridPolyConv:
                 logger.debug("evaluating refine level %s", lev)
                 idx2d = np.zeros(grid.shape, dtype=idx_dtype)
                 _ = reproject(
-                    idx_ar, idx2d,
-                    src_transform=fine_transform, dst_transform=grid_transform,
-                    src_crs=ds_crs, dst_crs=ds_crs,
-                    src_nodata=0, dst_nodata=0,
-                    resampling=Resampling.mode)
+                    idx_ar,
+                    idx2d,
+                    src_transform=fine_transform,
+                    dst_transform=grid_transform,
+                    src_crs=ds_crs,
+                    dst_crs=ds_crs,
+                    src_nodata=0,
+                    dst_nodata=0,
+                    resampling=Resampling.mode,
+                )
                 idx_l.append(idx2d)
                 idx2d_fine = idx2d[cX, cY]
-                sel2d = np.logical_and(
-                    idx_ar == idx2d_fine,
-                    idx_ar != 0)
+                sel2d = np.logical_and(idx_ar == idx2d_fine, idx_ar != 0)
                 count2d = np.zeros(grid.shape, dtype=frac_dtype)
                 _ = reproject(
-                    (sel2d).astype(np.uint8), count2d,
-                    src_transform=fine_transform, dst_transform=grid_transform,
-                    src_crs=ds_crs, dst_crs=ds_crs,
-                    src_nodata=0, dst_nodata=0,
-                    resampling=Resampling.sum)
+                    (sel2d).astype(np.uint8),
+                    count2d,
+                    src_transform=fine_transform,
+                    dst_transform=grid_transform,
+                    src_crs=ds_crs,
+                    dst_crs=ds_crs,
+                    src_nodata=0,
+                    dst_nodata=0,
+                    resampling=Resampling.sum,
+                )
                 ar_count_l.append(count2d)
                 # Remove previous values
                 idx_ar[idx_ar == idx2d_fine] = 0
@@ -387,13 +421,16 @@ class GridPolyConv:
             else:
                 logger.debug(
                     "more refine levels could be requested "
-                    "by increasing max_levels (currently %s)", max_levels)
+                    "by increasing max_levels (currently %s)",
+                    max_levels,
+                )
             # Make 3D arrays
             idx_ar = np.stack(idx_l)
             ar_count = np.stack(ar_count_l)
         obj = cls(poly_idx, idx_ar, ar_count, logger)
 
         if caching:
+
             def write_cache(dirname):
                 """Return "tryagain" bool."""
                 cache_path = dirname / cache_fname
@@ -403,12 +440,12 @@ class GridPolyConv:
                     obj.logger.info("wrote cache file: %s", cache_path)
                     return False
                 except pickle.PicklingError as e:
-                    obj.logger.error(
-                        "could not create cache file: %s", cache_path)
+                    obj.logger.error("could not create cache file: %s", cache_path)
                     raise e
                 except Exception as e:
                     obj.logger.error(
-                        "could not create cache file: %s\n%s", cache_path, e)
+                        "could not create cache file: %s\n%s", cache_path, e
+                    )
                     return True
 
             if cache_grid_dir:
@@ -423,17 +460,17 @@ class GridPolyConv:
     def generate_cached_fname(grid, vals_d, refine, shapes=None):
         """Generate a cached filename."""
         from hashlib import md5
+
         prefix = "c"
         suffix = ".gpc"
         pt1 = md5(
-            str(grid).encode() +
-            str(vals_d).encode() +
-            str(refine).encode()).hexdigest()[:8]
+            str(grid).encode() + str(vals_d).encode() + str(refine).encode()
+        ).hexdigest()[:8]
         if shapes is None:
             return prefix + pt1 + suffix
         pt2 = md5(
             str(list(sorted(shapes, key=lambda item: item[1]))).encode()
-            ).hexdigest()[:8]
+        ).hexdigest()[:8]
         return prefix + pt1 + pt2 + suffix
 
     def to_pickle(self, path, protocol=4):
@@ -491,10 +528,9 @@ class GridPolyConv:
             raise ValueError("expected values to have 1 or 2 dimensions")
         elif len(index) != values.shape[-1]:
             raise ValueError(
-                "length of last dimension of values "
-                "does not match index length")
-        self.logger.info(
-            "reading array from values with shape %s", values.shape)
+                "length of last dimension of values " "does not match index length"
+            )
+        self.logger.info("reading array from values with shape %s", values.shape)
         if enforce1d and values.ndim != 1:
             raise ValueError("values must have one dimension")
         index_s = set(index)
@@ -514,8 +550,7 @@ class GridPolyConv:
                 values = values[order]
             else:  # ndim == 2
                 values = values[:, order]
-            self.logger.info(
-                "subset/re-ordered values to shape %s", values.shape)
+            self.logger.info("subset/re-ordered values to shape %s", values.shape)
         # ar index 0 is fill, replace index values
         if values.ndim == 1:
             values = np.insert(values, 0, fill)
@@ -543,8 +578,16 @@ class GridPolyConv:
         return ar
 
     def array_from_netcdf(
-            self, fname: str, idx_name: str, var_name: str, *, xidx=None,
-            time_stats: str = "mean", fill=0, enforce1d: bool = False):
+        self,
+        fname: str,
+        idx_name: str,
+        var_name: str,
+        *,
+        xidx=None,
+        time_stats: str = "mean",
+        fill=0,
+        enforce1d: bool = False,
+    ):
         """Return array from a netCDF source with polygon index.
 
         Parameters
@@ -605,8 +648,7 @@ class GridPolyConv:
         try:
             import xarray
         except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "array_from_netcdf requires xarray")
+            raise ModuleNotFoundError("array_from_netcdf requires xarray")
 
         if time_stats is not None:
             if ":" in time_stats:
@@ -619,15 +661,15 @@ class GridPolyConv:
                     end_month = 12
                 elif "-" in time_window:
                     if time_window.count("-") != 1:
-                        raise ValueError(
-                            "too many '-' for time_window: {time_window}")
+                        raise ValueError("too many '-' for time_window: {time_window}")
                     start_month, end_month = time_window.split("-")
                     start_month = month_number(start_month)
                     end_month = month_number(end_month)
                 else:
                     raise ValueError(
                         f"time stats window {time_window!r} "
-                        "not supported; use 'annual' or a month range")
+                        "not supported; use 'annual' or a month range"
+                    )
             else:
                 time_window = None
                 time_stats_l = time_stats.split(",")
@@ -643,11 +685,9 @@ class GridPolyConv:
 
         avail = list(ds.variables.keys())
         if var_name not in avail:
-            raise AttributeError(
-                f"cannot find '{var_name}' in variables: {avail}")
+            raise AttributeError(f"cannot find '{var_name}' in variables: {avail}")
         elif idx_name not in avail:
-            raise AttributeError(
-                f"cannot find '{idx_name}' in variables: {avail}")
+            raise AttributeError(f"cannot find '{idx_name}' in variables: {avail}")
         if idx_name not in ds.coords:
             new_coords = []
             if "time" in ds.coords:
@@ -659,8 +699,11 @@ class GridPolyConv:
             raise ValueError(f"expected 1-d {idx_name} index dimension")
         var = ds[var_name]
         self.logger.info(
-            "found variable %r with %d dims/shape: %s", var_name, var.ndim,
-            ", ".join(f"{k}: {v}" for k, v in zip(var.dims, var.shape)))
+            "found variable %r with %d dims/shape: %s",
+            var_name,
+            var.ndim,
+            ", ".join(f"{k}: {v}" for k, v in zip(var.dims, var.shape)),
+        )
         if idx_name not in var.dims:
             var = var.swap_dims({idx_dims[0]: idx_name})
         # Handle extra dimension/index
@@ -672,21 +715,25 @@ class GridPolyConv:
                 self.logger.warning(
                     "dataset has extra dimension %r that should be indexed "
                     "using xidx; choosing index %s from size %s",
-                    rem_dim, xidx, ds.dims[rem_dim])
+                    rem_dim,
+                    xidx,
+                    ds.dims[rem_dim],
+                )
             else:
                 self.logger.info(
                     "selecting xidx %s from %r with size %s",
-                    xidx, rem_dim, ds.dims[rem_dim])
+                    xidx,
+                    rem_dim,
+                    ds.dims[rem_dim],
+                )
             var = var.loc[{rem_dim: xidx}]
         elif len(rem_dims) == 0 and xidx is not None:
-            self.logger.warning(
-                "xidx %s is ignored, no extra index found", xidx)
+            self.logger.warning("xidx %s is ignored, no extra index found", xidx)
         # variable index dimension must be last
         if var.ndim > 1 and var.dims[-1] != idx_name:
             var = var.transpose(..., idx_name)
         # Select the values from the catchments
-        self.logger.debug(
-            "loading data from %s catchments ...", len(self.poly_idx))
+        self.logger.debug("loading data from %s catchments ...", len(self.poly_idx))
         var = var.sel({idx_name: list(self.poly_idx)}).load()
         self.logger.debug("... done")
 
@@ -699,34 +746,33 @@ class GridPolyConv:
         if time_stats is not None and "time" in var.dims:
             self.logger.info(
                 "determining time stats %r of %r along time dimension",
-                time_stats, var_name)
+                time_stats,
+                var_name,
+            )
             time = var["time"]
             month = np.array(time.dt.month)
             num_months = end_month - start_month + 1
             if (num_months % 12) == 0:
                 # select all months
                 month_sel = np.ones_like(month).astype(bool)
-                self.logger.info(
-                    "performing statistics along full time dimension")
+                self.logger.info("performing statistics along full time dimension")
             else:
                 if num_months < 1:
                     num_months += 12
-                    month_sel = (
-                        (month >= start_month) | (month <= end_month))
+                    month_sel = (month >= start_month) | (month <= end_month)
                 else:
-                    month_sel = (
-                        (month >= start_month) & (month <= end_month))
+                    month_sel = (month >= start_month) & (month <= end_month)
                 self.logger.info(
-                    "performing statistics with a %d-month window, "
-                    "starting in %s",
-                    num_months, calendar.month_name[start_month])
+                    "performing statistics with a %d-month window, " "starting in %s",
+                    num_months,
+                    calendar.month_name[start_month],
+                )
             has_partial_month_sel = not month_sel.all()
             if has_partial_month_sel:
                 self.logger.debug(
-                    "month counts: %s",
-                    dict(sorted(Counter(month[month_sel]).items())))
-            if (set(time_stats_l).intersection(["min", "max", "median"]) and
-                    time_window):
+                    "month counts: %s", dict(sorted(Counter(month[month_sel]).items()))
+                )
+            if set(time_stats_l).intersection(["min", "max", "median"]) and time_window:
                 # year totals are only needed for min, max, median
                 year = xarray.DataArray(time.dt.year)
                 if start_month > end_month:
@@ -746,7 +792,8 @@ class GridPolyConv:
                     var_mean = var.groupby(year).mean()
                 self.logger.debug(
                     "year counts: %s",
-                    dict(sorted(Counter(year[month_sel].to_numpy()).items())))
+                    dict(sorted(Counter(year[month_sel].to_numpy()).items())),
+                )
                 # evaluate weights (i.e. area) for each catchment
                 if self.weight is None:
                     wvar = var
@@ -770,7 +817,8 @@ class GridPolyConv:
                 elif tstats == "median":
                     if time_window:
                         median_idx = wvar_year_total.argsort()[
-                            wvar_year_total.size // 2]
+                            wvar_year_total.size // 2
+                        ]
                         median_year = wvar_year_total.year[median_idx].item()
                         self.logger.info("median year is %s", median_year)
                         values = var_mean.sel(year=median_year)
@@ -779,7 +827,8 @@ class GridPolyConv:
                 elif tstats == "min":
                     if time_window:
                         min_year = wvar_year_total.year[
-                            wvar_year_total.argmin("year")].item()
+                            wvar_year_total.argmin("year")
+                        ].item()
                         self.logger.info("min year is %s", min_year)
                         values = var_mean.sel(year=min_year)
                     else:
@@ -787,7 +836,8 @@ class GridPolyConv:
                 elif tstats == "max":
                     if time_window:
                         max_year = wvar_year_total.year[
-                            wvar_year_total.argmax("year")].item()
+                            wvar_year_total.argmax("year")
+                        ].item()
                         self.logger.info("max year is %s", max_year)
                         values = var_mean.sel(year=max_year)
                     else:
@@ -802,13 +852,13 @@ class GridPolyConv:
                     raise ValueError(f"unhandled time stats {tstats!r}")
                 with disable_logger(self.logger):
                     ar = self.array_from_values(
-                        idx, values, fill=fill, enforce1d=enforce1d)
+                        idx, values, fill=fill, enforce1d=enforce1d
+                    )
                 ret[tstats] = ar
         else:
             self.logger.debug("time stats are not used for %r", var_name)
             values = var.values
-            ar = self.array_from_values(
-                idx, values, fill=fill, enforce1d=enforce1d)
+            ar = self.array_from_values(idx, values, fill=fill, enforce1d=enforce1d)
             ret[None] = ar
 
         return ret

@@ -25,7 +25,7 @@ try:
 except ModuleNotFoundError:
     plt = None
 
-from gridit import cli, GridPolyConv
+from gridit import GridPolyConv, cli
 from gridit.display import print_array
 from gridit.logger import get_logger
 
@@ -85,87 +85,107 @@ Examples:
       --write-text {tmpdir / "waitaku2_rid.txt"}
 """
     parser = argparse.ArgumentParser(
-        prog=__package__, description=__doc__,
+        prog=__package__,
+        description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=examples)
+        epilog=examples,
+    )
 
     cli.add_grid_parser_arguments(parser)
 
     if rasterio:
-        array_from_raster_group = parser.add_argument_group(
-            "Array from raster")
+        array_from_raster_group = parser.add_argument_group("Array from raster")
         array_from_raster_group.add_argument(
-            "--array-from-raster", metavar="FILE[:BIDX]",
+            "--array-from-raster",
+            metavar="FILE[:BIDX]",
             help="Source raster file, and optional band index "
-            "(default 1 for first band)."
+            "(default 1 for first band).",
         )
         array_from_raster_group.add_argument(
-            "--array-from-raster-resampling", metavar="SMP",
+            "--array-from-raster-resampling",
+            metavar="SMP",
             help="Raster resampling method, default None to "
-                 "automatically choose. Use one of: " +
-                 ", ".join(rasterio.enums.Resampling.__members__.keys())
+            "automatically choose. Use one of: "
+            + ", ".join(rasterio.enums.Resampling.__members__.keys()),
         )
     else:
-        parser.add_argument_group(
-            "Array from raster", "rasterio not installed")
+        parser.add_argument_group("Array from raster", "rasterio not installed")
 
     if fiona:
-        array_from_vector_group = parser.add_argument_group(
-            "Array from vector")
+        array_from_vector_group = parser.add_argument_group("Array from vector")
         array_from_vector_group.add_argument(
-            "--array-from-vector", metavar="FILE[:LAYER]",
+            "--array-from-vector",
+            metavar="FILE[:LAYER]",
             help="Source vector file. For multilayer datasources, use the "
-            "format 'datasource:layer'"
+            "format 'datasource:layer'",
         )
         array_from_vector_group.add_argument(
-            "--array-from-vector-attribute", metavar="NAME", default=None,
-            help=dedent("""\
+            "--array-from-vector-attribute",
+            metavar="NAME",
+            default=None,
+            help=dedent(
+                """\
                 Name of attribute to rasterize. Default None returns
-                a boolean result where vector features are located.""")
+                a boolean result where vector features are located."""
+            ),
         )
         array_from_vector_group.add_argument(
-            "--array-from-vector-calc", metavar="CALC", default=None,
-            help="Not implemented yet."
+            "--array-from-vector-calc",
+            metavar="CALC",
+            default=None,
+            help="Not implemented yet.",
         )
         array_from_vector_group.add_argument(
-            "--array-from-vector-fill", metavar="FILL", default=0,
+            "--array-from-vector-fill",
+            metavar="FILL",
+            default=0,
             help="Fill value, only used where polygon does not cover unmasked "
-                 "grid. Default fill value is 0."
+            "grid. Default fill value is 0.",
         )
         array_from_vector_group.add_argument(
             "--array-from-vector-refine",
-            metavar="INT", type=int,
-            help=dedent("""\
+            metavar="INT",
+            type=int,
+            help=dedent(
+                """\
                 Controls level of pre-processing used to approximate details
                 from polygon vector sources. Ignored for points.
                 If one, use default (coarse) rasterizing at grid resolution.
                 If greater than 1, refine each dimension by a factor.
-                Default will determine an appropriate refine value.""")
+                Default will determine an appropriate refine value."""
+            ),
         )
         array_from_vector_group.add_argument(
             "--array-from-vector-max-levels",
-            metavar="INT", type=int, default=5,
+            metavar="INT",
+            type=int,
+            default=5,
             help="If refine is greater than 1, set a maximum number "
-                 "of refine levels. Default 5."
+            "of refine levels. Default 5.",
         )
         array_from_vector_group.add_argument(
-            "--all-touched", action="store_true",
-            help=dedent("""\
+            "--all-touched",
+            action="store_true",
+            help=dedent(
+                """\
                 If enabled, all grid cells touched by polygon or line
                 geometries will be updated. Otherwise, by default only update
                 cells whose center is within the polygon or line is on the
-                render path. Ignored for points.""")
+                render path. Ignored for points."""
+            ),
         )
     else:
-        parser.add_argument_group(
-            "Array from vector", "fiona not installed")
+        parser.add_argument_group("Array from vector", "fiona not installed")
 
     if has_netcdf4 and fiona:
         array_from_netcdf_group = parser.add_argument_group(
-            "Array from catchment netCDF")
+            "Array from catchment netCDF"
+        )
         array_from_netcdf_group.add_argument(
-            "--array-from-netcdf", metavar="F:I:V[:X]",
-            help=dedent("""\
+            "--array-from-netcdf",
+            metavar="F:I:V[:X]",
+            help=dedent(
+                """\
                 Source netCDF of catchment values supplied in the format:
                 'file.nc:idx_name:var_name[:xidx]' where 'file.nc' is a path
                 to a netCDF file, 'idx_name' is the variable name with the
@@ -173,10 +193,15 @@ Examples:
                 values, and 'xidx' is an extra dimension 0-based index, which
                 may be required for datasets with multiple runs or ensembles.
                 If the variable has a time dimension, it is reduced by
-                evaluating time statistics, with default 'mean'."""))
+                evaluating time statistics, with default 'mean'."""
+            ),
+        )
         array_from_netcdf_group.add_argument(
-            "--time-stats", metavar="TYPE", default="mean",
-            help=dedent("""\
+            "--time-stats",
+            metavar="TYPE",
+            default="mean",
+            help=dedent(
+                """\
                 Compute time-statistics along time dimension.
                 Default "mean" evaluates the mean values. Other types may
                 include "min", "median", "max", "quantile(N)" where N is a
@@ -185,40 +210,57 @@ Examples:
                 modifies "min", "median" and "max" calculations to find
                 years with "lowest", "middle" or "highest" total values.
                 E.g. "Jul-Jun:min" will find the NZ water year with lowest
-                values."""))
+                values."""
+            ),
+        )
     else:
         parser.add_argument_group(
-            "Array from catchment netCDF",
-            "netCDF4 and/or fiona not installed")
+            "Array from catchment netCDF", "netCDF4 and/or fiona not installed"
+        )
 
     write_output_group = parser.add_argument_group("Write outputs")
     write_output_group.add_argument(
-        "--turn-off-print-array", action="store_true",
-        help="Disable printing array image to console")
+        "--turn-off-print-array",
+        action="store_true",
+        help="Disable printing array image to console",
+    )
     write_output_group.add_argument(
-        "--write-image", metavar="FILE",
-        help="Write array image file, e.g., 'output.png'")
+        "--write-image",
+        metavar="FILE",
+        help="Write array image file, e.g., 'output.png'",
+    )
     write_output_group.add_argument(
-        "--write-raster", metavar="FILE",
-        help="Write array raster file, e.g., 'output.tif'")
+        "--write-raster",
+        metavar="FILE",
+        help="Write array raster file, e.g., 'output.tif'",
+    )
     write_output_group.add_argument(
-        "--write-text", metavar="FILE[:FMT]",
+        "--write-text",
+        metavar="FILE[:FMT]",
         help="Write array text file, e.g. 'output.txt'. An optional C format "
         "specification may follow after ':', e.g. 'output.txt:%%12.7E'. "
-        "The default is '%%s' for free format.")
+        "The default is '%%s' for free format.",
+    )
     write_output_group.add_argument(
-        "--write-vector", metavar="FILE[:LAYER]",
+        "--write-vector",
+        metavar="FILE[:LAYER]",
         help="Write array to vector file, e.g., 'output.shp'.  "
-        "For multilayer datasources, use format 'datasource:layer'.")
+        "For multilayer datasources, use format 'datasource:layer'.",
+    )
     write_output_group.add_argument(
-        "--write-vector-attribute", metavar="NAME",
+        "--write-vector-attribute",
+        metavar="NAME",
         help="Name of attribute to use writing vector file. "
-        "The default name is 'value'.")
+        "The default name is 'value'.",
+    )
 
     # General options
     parser.add_argument(
-        "--logger", metavar="LEVEL", default="INFO",
-        help="Logger level, default INFO. Use WARNING to show fewer messages.")
+        "--logger",
+        metavar="LEVEL",
+        default="INFO",
+        help="Logger level, default INFO. Use WARNING to show fewer messages.",
+    )
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -228,6 +270,7 @@ Examples:
 
     logger = get_logger(__package__, args.logger)
     logger.debug("parser args: %s", args)
+
     def error(msg, name="", show_usage=False, exit=1):
         if show_usage:
             parser.print_usage(sys.stderr)
@@ -276,7 +319,7 @@ Examples:
             fname = args.write_text
             if ":" in fname and (split := fname.rindex(":")) > 1:
                 fname = Path(args.write_text[:split])
-                fmt = args.write_text[(split + 1):]
+                fmt = args.write_text[(split + 1) :]
             else:
                 fname = Path(fname)
                 fmt = "%s"
@@ -293,7 +336,7 @@ Examples:
             fname = args.write_vector
             if ":" in fname and (split := fname.rindex(":")) > 1:
                 fname = Path(args.write_vector[:split])
-                layer = args.write_vector[(split + 1):]
+                layer = args.write_vector[(split + 1) :]
             else:
                 fname = Path(fname)
                 layer = None
@@ -332,14 +375,15 @@ Examples:
         bidx = 1
         if ":" in fname and (split := fname.rindex(":")) > 1:
             fname = args.array_from_raster[:split]
-            bidx = args.array_from_raster[(split + 1):]
+            bidx = args.array_from_raster[(split + 1) :]
             try:
                 bidx = int(bidx)
             except ValueError as err:
                 error(err, "array_from_raster", True)
         try:
             array = grid.array_from_raster(
-                fname=fname, bidx=bidx,
+                fname=fname,
+                bidx=bidx,
                 resampling=args.array_from_raster_resampling,
             )
         except (RasterioCPLE_BaseError, RasterioError) as err:
@@ -362,25 +406,39 @@ Examples:
         attr_name = "array_from_vector_attribute"
         attr = getattr(args, attr_name)
         if vector_fname is None or attr is None:
-            error("missing --array-from-vector and/or "
-                  "--array-from-vector-attribute, which are required "
-                  "to provide spatial distributions of catchment polygons, "
-                  "and the common index attribute name", name_nc)
+            error(
+                "missing --array-from-vector and/or "
+                "--array-from-vector-attribute, which are required "
+                "to provide spatial distributions of catchment polygons, "
+                "and the common index attribute name",
+                name_nc,
+            )
         if ":" in vector_fname and (split := vector_fname.rindex(":")) > 1:
             vector_fname = args.array_from_vector[:split]
-            layer = args.array_from_vector[(split + 1):]
+            layer = args.array_from_vector[(split + 1) :]
 
         refine = args.array_from_vector_refine
         if refine is None:
             refine = 5  # use this default, assuming polygon
         gpc = GridPolyConv.from_grid_vector(
-            grid, vector_fname, attr, layer=layer, refine=refine,
-            max_levels=args.array_from_vector_max_levels)
+            grid,
+            vector_fname,
+            attr,
+            layer=layer,
+            refine=refine,
+            max_levels=args.array_from_vector_max_levels,
+        )
 
         fill = args.array_from_vector_fill
         ar_d = gpc.array_from_netcdf(
-            nc_fname, idx_name, var_name, xidx=xidx,
-            time_stats=args.time_stats, fill=fill, enforce1d=True)
+            nc_fname,
+            idx_name,
+            var_name,
+            xidx=xidx,
+            time_stats=args.time_stats,
+            fill=fill,
+            enforce1d=True,
+        )
         for key, array in ar_d.items():
             logger.info("time stats: %s", key)
             if array.ndim == 3:
@@ -401,10 +459,11 @@ Examples:
         layer = None
         if ":" in fname and (split := fname.rindex(":")) > 1:
             fname = args.array_from_vector[:split]
-            layer = args.array_from_vector[(split + 1):]
+            layer = args.array_from_vector[(split + 1) :]
         try:
             array = grid.array_from_vector(
-                fname, layer=layer,
+                fname,
+                layer=layer,
                 attribute=args.array_from_vector_attribute,
                 calc=args.array_from_vector_calc,
                 fill=args.array_from_vector_fill,

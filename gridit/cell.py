@@ -46,12 +46,10 @@ def cell_geoms(self, *, mask=None, order="C"):
     try:
         import shapely
     except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "cell_geoms() needs shapely to be installed")
+        raise ModuleNotFoundError("cell_geoms() needs shapely to be installed")
     if mask is not None:
         if getattr(mask, "shape", None) != self.shape:
-            raise ValueError(
-                "mask must be an array the same shape as the grid")
+            raise ValueError("mask must be an array the same shape as the grid")
         if not np.issubdtype(mask.dtype, np.bool_):
             mask = mask.astype(bool)
         if mask.all():
@@ -109,6 +107,7 @@ def cell_geoms(self, *, mask=None, order="C"):
         geoms = shapely.polygons(rings)
     except AttributeError:  # shapely 1.x
         from itertools import product
+
         from shapely.geometry import Polygon
 
         geoms_list = []
@@ -173,8 +172,7 @@ def cell_geoseries(self, *, mask=None, order="C"):
     try:
         import geopandas
     except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "cell_geoseries() needs geopandas to be installed")
+        raise ModuleNotFoundError("cell_geoseries() needs geopandas to be installed")
     geoms = self.cell_geoms(mask=mask, order=order)
     gs = geopandas.GeoSeries(geoms, crs=self.projection)
     if mask is not None:
@@ -234,8 +232,7 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
     try:
         import geopandas
     except ModuleNotFoundError:
-        raise ModuleNotFoundError(
-            "cell_geodataframe() needs geopandas to be installed")
+        raise ModuleNotFoundError("cell_geodataframe() needs geopandas to be installed")
     gs = self.cell_geoseries(mask=mask, order=order)
     gdf = geopandas.GeoDataFrame(geometry=gs, crs=self.projection)
     if mask is not None:
@@ -257,7 +254,7 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
                 raise ValueError("key for values must be str")
             elif getattr(array, "shape", None) != self.shape:
                 raise ValueError(
-                    f"array {name!r} in values must have the same shape "
-                    "as the grid")
+                    f"array {name!r} in values must have the same shape " "as the grid"
+                )
             gdf[name] = array.ravel(order=order)[sel]
     return gdf

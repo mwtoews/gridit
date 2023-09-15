@@ -6,13 +6,14 @@ import re
 import sys
 from importlib import metadata
 from pathlib import Path
-from subprocess import Popen, PIPE
+from subprocess import PIPE, Popen
 
 import pytest
 
 try:
     # avoid fiona._env:transform.py:94 Unable to open EPSG support file gcs.csv
     import fiona
+
     del fiona
 except ModuleNotFoundError:
     pass
@@ -41,8 +42,8 @@ def requires_pkg(*pkgs):
     missing = {pkg for pkg in pkgs if not has_pkg(pkg)}
     return pytest.mark.skipif(
         missing,
-        reason=f"missing package{'s' if len(missing) != 1 else ''}: " +
-               ", ".join(missing),
+        reason=f"missing package{'s' if len(missing) != 1 else ''}: "
+        + ", ".join(missing),
     )
 
 

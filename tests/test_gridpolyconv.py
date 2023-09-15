@@ -1,14 +1,16 @@
 import logging
+
 import numpy as np
 import pytest
 
-from .conftest import datadir, has_pkg, requires_pkg, set_env
 from gridit import Grid, GridPolyConv
+
+from .conftest import datadir, has_pkg, requires_pkg, set_env
 
 if not (has_pkg("fiona") and has_pkg("rasterio")):
     pytest.skip(
-        "skipping tests that require fiona and rasterio",
-        allow_module_level=True)
+        "skipping tests that require fiona and rasterio", allow_module_level=True
+    )
 
 if has_pkg("fiona"):
     import fiona
@@ -21,8 +23,7 @@ waitaku2_nc = datadir / "waitaku2.nc"
 @pytest.fixture
 def waitaku2_gpc_rid_2():
     grid = Grid.from_bbox(1811435, 5866204, 1815226, 5871934, 250)
-    gpc = GridPolyConv.from_grid_vector(
-        grid, waitaku2_shp, "rid", refine=2, caching=0)
+    gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=2, caching=0)
     return gpc
 
 
@@ -30,17 +31,14 @@ def waitaku2_gpc_rid_2():
 def waitaku2_gpc_rid_5():
     grid = Grid.from_bbox(1806827, 5865749, 1817941, 5875560, 1000)
     gpc = GridPolyConv.from_grid_vector(
-        grid, waitaku2_shp, "rid", refine=5, max_levels=6, caching=0)
+        grid, waitaku2_shp, "rid", refine=5, max_levels=6, caching=0
+    )
     return gpc
 
 
 def test_init(caplog):
     # test errors first
-    ar = np.array(
-        [[[0, 1],
-          [2, 1]],
-         [[0, 2],
-          [0, 2]]])
+    ar = np.array([[[0, 1], [2, 1]], [[0, 2], [0, 2]]])
     with pytest.raises(ValueError, match="poly_idx must be a tuple or list-"):
         GridPolyConv(1, ar[0])
     with pytest.raises(ValueError, match="poly_idx values are not unique"):
@@ -69,11 +67,7 @@ def test_init(caplog):
     assert gpc.ar_count is None
     assert gpc.weight is None
     np.testing.assert_array_equal(gpc.mask, ar[0] == 0)
-    ar_count = np.array(
-        [[[0, 3],
-          [4, 1]],
-         [[0, 1],
-          [0, 3]]])
+    ar_count = np.array([[[0, 3], [4, 1]], [[0, 1], [0, 3]]])
     gpc = GridPolyConv([102, 101], ar, ar_count)
     assert gpc.poly_idx == (102, 101)
     np.testing.assert_array_equal(gpc.idx_ar, ar)
@@ -85,20 +79,19 @@ def test_init(caplog):
 def test_from_grid_vector_errors():
     grid = Grid.from_bbox(1811435, 5866204, 1815226, 5871934, 250)
     with pytest.raises(ValueError, match="grid must be an instance of Grid"):
-        GridPolyConv.from_grid_vector(
-            1, waitaku2_shp, "rid", caching=0)
+        GridPolyConv.from_grid_vector(1, waitaku2_shp, "rid", caching=0)
     with pytest.raises(ValueError, match="refine must be int"):
-        GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", refine=1.0, caching=0)
+        GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=1.0, caching=0)
     with pytest.raises(ValueError, match="refine must be >= 1"):
-        GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", refine=0, caching=0)
+        GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=0, caching=0)
     with pytest.raises(ValueError, match="max_levels must be int"):
         GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", max_levels=1.0, caching=0)
+            grid, waitaku2_shp, "rid", max_levels=1.0, caching=0
+        )
     with pytest.raises(ValueError, match="max_levels must be >= 1"):
         GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", max_levels=0, caching=0)
+            grid, waitaku2_shp, "rid", max_levels=0, caching=0
+        )
     with pytest.raises(KeyError, match=r"could not find 'nope' in \['rid'\]"):
         GridPolyConv.from_grid_vector(grid, waitaku2_shp, "nope", caching=0)
     outgrid = Grid.from_bbox(0, 0, 1000, 2000, 250)
@@ -110,17 +103,13 @@ def test_caching(tmp_path):
     with set_env(GRID_CACHE_DIR=str(tmp_path)):
         assert len(list(tmp_path.iterdir())) == 0
         grid = Grid.from_bbox(1811435, 5866204, 1815226, 5871934, 250)
-        gpc0 = GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", caching=0)
+        gpc0 = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
         assert len(list(tmp_path.iterdir())) == 0
-        gpc1 = GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", caching=1)
+        gpc1 = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=1)
         assert len(list(tmp_path.iterdir())) == 1
-        gpc2 = GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", caching=1)
+        gpc2 = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=1)
         assert len(list(tmp_path.iterdir())) == 1
-        gpc3 = GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", caching=2)
+        gpc3 = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=2)
         assert len(list(tmp_path.iterdir())) == 2
         assert gpc1.idx_ar.shape == (5, 24, 16)
         assert gpc1 == gpc0
@@ -128,8 +117,7 @@ def test_caching(tmp_path):
         assert gpc1 == gpc3
         np.testing.assert_array_equal(gpc1.weight, gpc2.weight)
         grid2 = Grid.from_bbox(1811435, 5866204, 1815226, 5871934, 300)
-        gpc4 = GridPolyConv.from_grid_vector(
-            grid2, waitaku2_shp, "rid", caching=1)
+        gpc4 = GridPolyConv.from_grid_vector(grid2, waitaku2_shp, "rid", caching=1)
         assert len(list(tmp_path.iterdir())) == 3
         assert gpc1 != gpc4
 
@@ -140,7 +128,7 @@ def waitaku2_index_values():
     with fiona.open(waitaku2_shp) as ds:
         for f in ds:
             index.append(f["properties"]["rid"])
-    values = np.array(index) / 1000. - 3040
+    values = np.array(index) / 1000.0 - 3040
     return index, values
 
 
@@ -175,7 +163,8 @@ def test_waitaku2_200(waitaku2_index_values):
     # resolution 200 captures all catchment polygons
     grid = Grid.from_vector(waitaku2_shp, 200)
     gpc = GridPolyConv.from_grid_vector(
-        grid, waitaku2_shp, "rid", refine=5, max_levels=3, caching=0)
+        grid, waitaku2_shp, "rid", refine=5, max_levels=3, caching=0
+    )
     assert len(gpc.poly_idx) == 67
     assert gpc.poly_idx[:4] == (3046539, 3046727, 3046736, 3046737)
     assert gpc.poly_idx[-4:] == (3049674, 3049683, 3050099, 3050100)
@@ -233,11 +222,11 @@ def test_waitaku2_200(waitaku2_index_values):
 def test_waitaku2_500(caplog, waitaku2_index_values):
     # resolution 500 captures a subset of catchment polygons
     grid = Grid.from_vector(waitaku2_shp, 500)
-    exp_l = "missing idx values: [2, 4, 37] or " \
-        "'rid' values: [3046727, 3046737, 3048351]"
+    exp_l = (
+        "missing idx values: [2, 4, 37] or " "'rid' values: [3046727, 3046737, 3048351]"
+    )
     with caplog.at_level(logging.INFO):
-        gpc = GridPolyConv.from_grid_vector(
-            grid, waitaku2_shp, "rid", caching=0)
+        gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
         assert exp_l in caplog.messages[-1]
     assert len(gpc.poly_idx) == 67
     assert gpc.poly_idx[:4] == (3046539, 3046727, 3046736, 3046737)
@@ -270,8 +259,7 @@ def test_waitaku2_500(caplog, waitaku2_index_values):
 def test_waitaku2_500_no_refine(waitaku2_index_values):
     # resolution 500 captures a subset of catchment polygons
     grid = Grid.from_vector(waitaku2_shp, 500)
-    gpc = GridPolyConv.from_grid_vector(
-        grid, waitaku2_shp, "rid", refine=1, caching=0)
+    gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=1, caching=0)
     assert len(gpc.poly_idx) == 67
     assert gpc.poly_idx[:4] == (3046539, 3046727, 3046736, 3046737)
     assert gpc.poly_idx[-4:] == (3049674, 3049683, 3050099, 3050100)
@@ -318,7 +306,8 @@ def test_waitaku2_500_no_refine(waitaku2_index_values):
 
 def test_waitaku2_different_projection(waitaku2_index_values):
     grid = Grid.from_bbox(
-        19526452, -4480887, 19530406, -4476213, 250, projection="EPSG:3857")
+        19526452, -4480887, 19530406, -4476213, 250, projection="EPSG:3857"
+    )
     gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
     assert len(gpc.poly_idx) == 12
     assert gpc.poly_idx[:4] == (3047451, 3047452, 3047648, 3047649)
@@ -402,23 +391,29 @@ def test_array_from_netcdf(waitaku2_gpc_rid_2):
     np.testing.assert_equal(ar_default, ar_mean)
     np.testing.assert_array_almost_equal(
         min_max_sum(ar_mean),
-        [0.000814885541331023, 0.004716134164482355, 1.643364535892033])
+        [0.000814885541331023, 0.004716134164482355, 1.643364535892033],
+    )
     # process several time stats
     r3 = gpc.array_from_netcdf(
-        *args, **kwargs, time_stats="median,min,max,quantile(0.25)")
+        *args, **kwargs, time_stats="median,min,max,quantile(0.25)"
+    )
     assert list(r3.keys()) == ["median", "min", "max", "quantile(0.25)"]
     np.testing.assert_array_almost_equal(
         min_max_sum(r3["median"]),
-        [0.0007635842193849385, 0.00459129037335515, 1.5956306542357197])
+        [0.0007635842193849385, 0.00459129037335515, 1.5956306542357197],
+    )
     np.testing.assert_array_almost_equal(
         min_max_sum(r3["min"]),
-        [8.118862751871347e-05, 0.0009615062735974789, 0.33079623253433965])
+        [8.118862751871347e-05, 0.0009615062735974789, 0.33079623253433965],
+    )
     np.testing.assert_array_almost_equal(
         min_max_sum(r3["max"]),
-        [0.0017967323074117303, 0.009081936441361904, 3.1762626652780455])
+        [0.0017967323074117303, 0.009081936441361904, 3.1762626652780455],
+    )
     np.testing.assert_array_almost_equal(
         min_max_sum(r3["quantile(0.25)"]),
-        [0.00031803673482500017, 0.002559370594099164, 0.8835400953612407])
+        [0.00031803673482500017, 0.002559370594099164, 0.8835400953612407],
+    )
     # 2D values, all times returned
     r_none = gpc.array_from_netcdf(*args, **kwargs, time_stats=None)
     assert list(r_none.keys()) == [None]
@@ -426,27 +421,34 @@ def test_array_from_netcdf(waitaku2_gpc_rid_2):
     assert ar_none.shape == (371, 24, 16)
     np.testing.assert_array_almost_equal(
         min_max_sum(ar_none),
-        [8.118862751871347e-05, 0.009081936441361904, 609.6882373648059])
+        [8.118862751871347e-05, 0.009081936441361904, 609.6882373648059],
+    )
     # define time_window
-    rt = gpc.array_from_netcdf(
-        *args, **kwargs, time_stats="annual:mean,min,max")
+    rt = gpc.array_from_netcdf(*args, **kwargs, time_stats="annual:mean,min,max")
     assert list(rt.keys()) == ["mean", "min", "max"]
     np.testing.assert_array_almost_equal(
         min_max_sum(rt["mean"]),
-        [0.000814885541331023, 0.004716134164482355, 1.643364535892033])
+        [0.000814885541331023, 0.004716134164482355, 1.643364535892033],
+    )
     np.testing.assert_array_almost_equal(
         min_max_sum(rt["min"]),
-        [0.0007734778919257224, 0.004534569568932056, 1.5795951503532706])
+        [0.0007734778919257224, 0.004534569568932056, 1.5795951503532706],
+    )
     np.testing.assert_array_almost_equal(
         min_max_sum(rt["max"]),
-        [0.0016269355546683073, 0.008276794105768204, 2.893949011049699])
+        [0.0016269355546683073, 0.008276794105768204, 2.893949011049699],
+    )
 
 
 @requires_pkg("xarray")
-@pytest.mark.parametrize("idx_ar,ar_count", [
-    (np.uint8(1).reshape((1,) * 2), None),
-    (np.uint8(1).reshape((1,) * 3), np.uint8(1).reshape((1,) * 3)),
-], ids=["2D", "3D"])
+@pytest.mark.parametrize(
+    "idx_ar,ar_count",
+    [
+        (np.uint8(1).reshape((1,) * 2), None),
+        (np.uint8(1).reshape((1,) * 3), np.uint8(1).reshape((1,) * 3)),
+    ],
+    ids=["2D", "3D"],
+)
 def test_array_from_netcdf_time_stats(idx_ar, ar_count):
     # netcdf not required for this test
     import pandas as pd
@@ -456,10 +458,10 @@ def test_array_from_netcdf_time_stats(idx_ar, ar_count):
     gpc = GridPolyConv([100], idx_ar, ar_count)
     time = pd.date_range("2013-01-01", periods=365 * 3)
     data = (
-        time.year - 2010 +
-        time.month / 100 +
-        time.day / 10000
-    ).to_numpy().reshape((1, -1))
+        (time.year - 2010 + time.month / 100 + time.day / 10000)
+        .to_numpy()
+        .reshape((1, -1))
+    )
     ds = xarray.DataArray(
         data=data,
         coords={"rid": [100], "time": time},
@@ -476,7 +478,8 @@ def test_array_from_netcdf_time_stats(idx_ar, ar_count):
         assert list(res.keys()) == list(expected.keys())
         for key, array in expected.items():
             np.testing.assert_allclose(
-                res[key], np.ma.atleast_2d(array), err_msg=f"key is {key!r}")
+                res[key], np.ma.atleast_2d(array), err_msg=f"key is {key!r}"
+            )
 
     args = (ds, "rid", "dat")
 
@@ -490,58 +493,76 @@ def test_array_from_netcdf_time_stats(idx_ar, ar_count):
     res = gpc.array_from_netcdf(*args, time_stats=time_stats)
     check_result(
         res,
-        {"min": 3.0101,
-         "mean": 4.0668323287671235,
-         "median": 4.0702,
-         "quantile(0.5)": 4.0702,
-         "max": 5.1231})
+        {
+            "min": 3.0101,
+            "mean": 4.0668323287671235,
+            "median": 4.0702,
+            "quantile(0.5)": 4.0702,
+            "max": 5.1231,
+        },
+    )
 
     # full year, Jan-Dec
     res = gpc.array_from_netcdf(*args, time_stats="annual:" + time_stats)
     check_result(
         res,
-        {"min": 3.0668323287671235,
-         "mean": 4.0668323287671235,
-         "median": 4.066832328767123,
-         "quantile(0.5)": 4.0702,
-         "max": 5.066832328767123})
+        {
+            "min": 3.0668323287671235,
+            "mean": 4.0668323287671235,
+            "median": 4.066832328767123,
+            "quantile(0.5)": 4.0702,
+            "max": 5.066832328767123,
+        },
+    )
 
     # NZ water year
     res = gpc.array_from_netcdf(*args, time_stats="July-June:" + time_stats)
     check_result(
         res,
-        {"min": 3.0366430939226516,
-         "mean": 4.0668323287671235,
-         "median": 4.562722739726028,
-         "quantile(0.5)": 4.0702,
-         "max": 5.096529347826087})
+        {
+            "min": 3.0366430939226516,
+            "mean": 4.0668323287671235,
+            "median": 4.562722739726028,
+            "quantile(0.5)": 4.0702,
+            "max": 5.096529347826087,
+        },
+    )
 
     # US water year
     res = gpc.array_from_netcdf(*args, time_stats="Oct-Sep:" + time_stats)
     check_result(
         res,
-        {"min": 3.051751282051282,
-         "mean": 4.0668323287671235,
-         "median": 4.814777534246575,
-         "quantile(0.5)": 4.0702,
-         "max": 5.1115836956521745})
+        {
+            "min": 3.051751282051282,
+            "mean": 4.0668323287671235,
+            "median": 4.814777534246575,
+            "quantile(0.5)": 4.0702,
+            "max": 5.1115836956521745,
+        },
+    )
 
     # two months
     res = gpc.array_from_netcdf(*args, time_stats="Jan-feb:" + time_stats)
     check_result(
         res,
-        {"min": 3.016274576271186,
-         "mean": 4.0162745762711864,
-         "median": 4.016274576271186,
-         "quantile(0.5)": 4.0130,
-         "max": 5.0162745762711864})
+        {
+            "min": 3.016274576271186,
+            "mean": 4.0162745762711864,
+            "median": 4.016274576271186,
+            "quantile(0.5)": 4.0130,
+            "max": 5.0162745762711864,
+        },
+    )
 
     # one month
     res = gpc.array_from_netcdf(*args, time_stats="Nov-november:" + time_stats)
     check_result(
         res,
-        {"min": 3.11155,
-         "mean": 4.11155,
-         "median": 4.11155,
-         "quantile(0.5)": 4.11155,
-         "max": 5.11155})
+        {
+            "min": 3.11155,
+            "mean": 4.11155,
+            "median": 4.11155,
+            "quantile(0.5)": 4.11155,
+            "max": 5.11155,
+        },
+    )

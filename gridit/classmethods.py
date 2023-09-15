@@ -1,7 +1,8 @@
 """Grid from_* classmethods."""
 
+from math import ceil, floor
+
 import numpy as np
-from math import floor, ceil
 
 from gridit.logger import get_logger
 
@@ -45,9 +46,16 @@ def get_shape_top_left(bounds, resolution, buffer=0.0):
 
 @classmethod
 def from_bbox(
-        cls, minx: float, miny: float, maxx: float, maxy: float,
-        resolution: float, buffer: float = 0.0, projection: str = "",
-        logger=None):
+    cls,
+    minx: float,
+    miny: float,
+    maxx: float,
+    maxy: float,
+    resolution: float,
+    buffer: float = 0.0,
+    projection: str = "",
+    logger=None,
+):
     """Create grid information from a bounding box and resolution.
 
     Bounds are "snapped" to a multiple of the resolution.
@@ -89,14 +97,19 @@ def from_bbox(
     logger.info("creating from a bounding box")
     bounds = minx, miny, maxx, maxy
     shape, top_left = get_shape_top_left(bounds, resolution, buffer)
-    return cls(resolution=resolution, shape=shape, top_left=top_left,
-               projection=projection, logger=logger)
+    return cls(
+        resolution=resolution,
+        shape=shape,
+        top_left=top_left,
+        projection=projection,
+        logger=logger,
+    )
 
 
 @classmethod
 def from_raster(
-        cls, fname: str, resolution: float = None, buffer: float = 0.0,
-        logger=None):
+    cls, fname: str, resolution: float = None, buffer: float = 0.0, logger=None
+):
     """Fetch grid information from a raster.
 
     Parameters
@@ -141,14 +154,25 @@ def from_raster(
     else:
         resolution = t.a
         top_left = t.c, t.f
-    return cls(resolution=resolution, shape=shape, top_left=top_left,
-               projection=projection, logger=logger)
+    return cls(
+        resolution=resolution,
+        shape=shape,
+        top_left=top_left,
+        projection=projection,
+        logger=logger,
+    )
 
 
 @classmethod
 def from_vector(
-        cls, fname: str, resolution: float, filter: dict = None,
-        buffer: float = 0.0, layer=None, logger=None):
+    cls,
+    fname: str,
+    resolution: float,
+    filter: dict = None,
+    buffer: float = 0.0,
+    layer=None,
+    logger=None,
+):
     """Create grid information from a vector source.
 
     Bounds are "snapped" to a multiple of the resolution.
@@ -186,8 +210,7 @@ def from_vector(
     if layer is None:
         layers = fiona.listlayers(fname)
         if len(layers) > 1:
-            logger.warning(
-                "choosing the first of %d layers: %s", len(layers), layers)
+            logger.warning("choosing the first of %d layers: %s", len(layers), layers)
             layer = layers[0]
     with fiona.open(fname, "r", layer=layer) as ds:
         projection = ds.crs_wkt
@@ -202,5 +225,10 @@ def from_vector(
         else:  # full shapefile bounds
             bounds = ds.bounds
     shape, top_left = get_shape_top_left(bounds, resolution, buffer)
-    return cls(resolution=resolution, shape=shape, top_left=top_left,
-               projection=projection, logger=logger)
+    return cls(
+        resolution=resolution,
+        shape=shape,
+        top_left=top_left,
+        projection=projection,
+        logger=logger,
+    )

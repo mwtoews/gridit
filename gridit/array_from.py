@@ -39,25 +39,25 @@ def array_from_array(self, grid, array, resampling=None):
     from gridit import Grid
 
     if not isinstance(grid, Grid):
-        raise TypeError(
-            f"expected grid to be a Grid; found {type(grid)!r}")
+        raise TypeError(f"expected grid to be a Grid; found {type(grid)!r}")
     elif not (hasattr(array, "ndim") and hasattr(array, "shape")):
-        raise TypeError(
-            f"expected array to be array_like; found {type(array)!r}")
+        raise TypeError(f"expected array to be array_like; found {type(array)!r}")
     elif not (array.ndim in (2, 3) and array.shape[-2:] == grid.shape):
         raise ValueError("array has different shape than grid")
 
-    rel_res_diff = abs(
-        (grid.resolution - self.resolution) / self.resolution) * 100
+    rel_res_diff = abs((grid.resolution - self.resolution) / self.resolution) * 100
     if rel_res_diff == 0.0:
         self.logger.info(
-            "source and destination have the same resolution %s",
-            self.resolution)
+            "source and destination have the same resolution %s", self.resolution
+        )
     else:
         self.logger.info(
             "source resolution %s vs destination resolution "
             "%s, which is a relative difference of %s%%",
-            grid.resolution, self.resolution, rel_res_diff)
+            grid.resolution,
+            self.resolution,
+            rel_res_diff,
+        )
     if resampling is None:
         is_floating = np.issubdtype(array.dtype, np.floating)
         if rel_res_diff <= 10.0:
@@ -77,8 +77,7 @@ def array_from_array(self, grid, array, resampling=None):
     self.logger.info("using %s resampling method", resampling)
     if not rasterio.dtypes.check_dtype(array.dtype):
         dtype = rasterio.dtypes.get_minimum_dtype(array)
-        self.logger.debug(
-            "changing array dtype from '%s' to '%s'", array.dtype, dtype)
+        self.logger.debug("changing array dtype from '%s' to '%s'", array.dtype, dtype)
         array = array.astype(dtype)
     kwds = {}
     nodata = None
@@ -110,10 +109,15 @@ def array_from_array(self, grid, array, resampling=None):
     dst_array = np.ma.empty(dst_shape, array.dtype)
     dst_array.mask = False
     _ = reproject(
-        array, dst_array.data,
-        src_transform=grid.transform, dst_transform=self.transform,
-        src_crs=src_crs, dst_crs=dst_crs,
-        resampling=resampling, **kwds)
+        array,
+        dst_array.data,
+        src_transform=grid.transform,
+        dst_transform=self.transform,
+        src_crs=src_crs,
+        dst_crs=dst_crs,
+        resampling=resampling,
+        **kwds,
+    )
     if nodata is not None:
         dst_array.mask = dst_array.data == nodata
     return dst_array
@@ -156,28 +160,28 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         else:
             ds_crs = ds.crs.to_wkt()
         if ds.transform == self.transform and ds.shape == self.shape:
-            self.logger.info(
-                "source raster matches grid info; reading full array")
+            self.logger.info("source raster matches grid info; reading full array")
             if ds_crs != self.projection:
-                self.logger.error(
-                    "source projection is different than grid")
+                self.logger.error("source projection is different than grid")
             ar = ds.read(bidx, masked=True)
             return ar
 
         band = rasterio.band(ds, bidx)
         ar = np.ma.zeros(self.shape, band.dtype)
         ds_mean_res = np.mean(ds.res)
-        rel_res_diff = abs(
-            (ds_mean_res - self.resolution) / self.resolution) * 100
+        rel_res_diff = abs((ds_mean_res - self.resolution) / self.resolution) * 100
         if rel_res_diff == 0.0:
             self.logger.info(
-                "source and destination have the same mean resolution %s",
-                ds_mean_res)
+                "source and destination have the same mean resolution %s", ds_mean_res
+            )
         else:
             self.logger.info(
                 "source mean resolution %s vs destination mean resolution "
                 "%s, which is a relative difference of %s%%",
-                ds_mean_res, self.resolution, rel_res_diff)
+                ds_mean_res,
+                self.resolution,
+                rel_res_diff,
+            )
         if resampling is None:
             is_floating = np.issubdtype(ar.dtype, np.floating)
             if rel_res_diff <= 10.0:
@@ -199,18 +203,21 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         if not grid_crs:
             if ds_crs:
                 grid_crs = ds_crs
-                self.logger.info(
-                    "assuming same projection: %s", shorten(grid_crs, 60))
+                self.logger.info("assuming same projection: %s", shorten(grid_crs, 60))
             else:
                 # TODO: is there a better catch-all projection?
                 grid_crs = ds_crs = CRS.from_epsg(3857)
 
         _ = reproject(
-            band, ar.data,
-            src_transform=ds.transform, dst_transform=self.transform,
-            src_crs=ds_crs, dst_crs=grid_crs,
+            band,
+            ar.data,
+            src_transform=ds.transform,
+            dst_transform=self.transform,
+            src_crs=ds_crs,
+            dst_crs=grid_crs,
             dst_nodata=ds.nodata,
-            resampling=resampling)
+            resampling=resampling,
+        )
         if ds.nodata is not None:
             if np.isnan(ds.nodata):
                 ar.mask = np.isnan(ar.data)
@@ -238,8 +245,16 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
 
 
 def array_from_vector(
-        self, fname: str, *, layer=None, attribute=None, calc=None,
-        fill=0, refine=None, all_touched=False):
+    self,
+    fname: str,
+    *,
+    layer=None,
+    attribute=None,
+    calc=None,
+    fill=0,
+    refine=None,
+    all_touched=False,
+):
     """Return array from vector source data aligned to grid info.
 
     The datatype is inferred from the attribute values.
@@ -286,11 +301,10 @@ def array_from_vector(
         raise NotImplementedError("calc does nothing for now")
     self.logger.info("reading array from vector datasource: %s", fname)
     vd = GridVectorData(self, fname, layer, attribute)
-    return vd.rasterize_array(
-        fill=fill, refine=refine, all_touched=all_touched)
+    return vd.rasterize_array(fill=fill, refine=refine, all_touched=all_touched)
+
 
 class GridVectorData:
-
     def __init__(self, grid, fname, layer, attribute=None):
         """Read vector data source and return data in dict."""
         try:
@@ -317,7 +331,8 @@ class GridVectorData:
             layers = fiona.listlayers(fname)
             if len(layers) > 1:
                 self.logger.warning(
-                    "choosing the first of %d layers: %s", len(layers), layers)
+                    "choosing the first of %d layers: %s", len(layers), layers
+                )
                 layer = layers[0]
         with fiona.open(fname, "r", layer=layer) as ds:
             self.geom_type = ds.schema["geometry"]
@@ -326,20 +341,20 @@ class GridVectorData:
             grid_crs = grid.projection
             do_transform = False
             if not grid_crs:
-                self.logger.info(
-                    "assuming same projection: %s", shorten(grid_crs, 60))
+                self.logger.info("assuming same projection: %s", shorten(grid_crs, 60))
             elif is_same_crs(grid_crs, ds_crs):
                 self.logger.info("same projection: %s", shorten(grid_crs, 60))
             else:
                 do_transform = True
                 self.logger.info(
                     "geometries will be transformed from %s to %s",
-                    shorten(ds_crs, 60), shorten(grid_crs, 60))
+                    shorten(ds_crs, 60),
+                    shorten(grid_crs, 60),
+                )
             if attribute is not None:
                 attributes = list(ds.schema["properties"].keys())
                 if attribute not in attributes:
-                    raise KeyError(
-                        f"could not find {attribute!r} in {attributes}")
+                    raise KeyError(f"could not find {attribute!r} in {attributes}")
                 self.vdtype = ds.schema["properties"][attribute]
 
             if do_transform:
@@ -349,12 +364,11 @@ class GridVectorData:
                 grid_box = box(*self.bounds)
                 # expand box slightly, because it might rotate with transform
                 buf = self.resolution * np.average(self.shape) * 0.15
-                grid_box_t = shape(transform_geom(
-                    grid_crs, ds_crs,
-                    mapping(grid_box.buffer(buf)))).buffer(buf)
+                grid_box_t = shape(
+                    transform_geom(grid_crs, ds_crs, mapping(grid_box.buffer(buf)))
+                ).buffer(buf)
                 kwargs = {"bbox": grid_box_t.bounds}
-                self.logger.info(
-                    "transforming features in bbox %s", grid_box_t.bounds)
+                self.logger.info("transforming features in bbox %s", grid_box_t.bounds)
                 for _, feat in ds.items(**kwargs):
                     if attribute is not None:
                         val = feat["properties"][attribute]
@@ -395,8 +409,7 @@ class GridVectorData:
         elif self.vdtype.startswith("int"):
             dtype = "uint8"
         else:
-            raise ValueError(
-                f"attribute {self.attribute} is neither float or int")
+            raise ValueError(f"attribute {self.attribute} is neither float or int")
         ar = np.ma.zeros(self.shape, dtype=dtype)
         ar.mask = True
         ar.fill_value = fill
@@ -436,8 +449,7 @@ class GridVectorData:
                     nodata = vals.max() + 1
                 resampling = Resampling.mode
             else:
-                raise ValueError(
-                    f"attribute {self.attribute} is neither float or int")
+                raise ValueError(f"attribute {self.attribute} is neither float or int")
             dtype = get_minimum_dtype(np.append(vals, nodata))
             if dtype == "float32":
                 dtype = "float64"
@@ -460,31 +472,50 @@ class GridVectorData:
             from rasterio.crs import CRS
             from rasterio.warp import reproject
 
-            fine_transform = self.transform * Affine.scale(1. / refine)
+            fine_transform = self.transform * Affine.scale(1.0 / refine)
             fine_shape = tuple(n * refine for n in self.shape)
             self.logger.info("rasterizing features to %s fine array", dtype)
             fine_ar = features.rasterize(
-                geom_vals, fine_shape, transform=fine_transform,
-                fill=nodata, dtype=dtype, all_touched=all_touched)
+                geom_vals,
+                fine_shape,
+                transform=fine_transform,
+                fill=nodata,
+                dtype=dtype,
+                all_touched=all_touched,
+            )
             # TODO: is there a better catch-all projection?
             ds_crs = CRS.from_epsg(3857)
             self.logger.info(
                 "reprojecting from fine to coarse array using "
                 "%s resampling method and all_touched=%s",
-                resampling, all_touched)
+                resampling,
+                all_touched,
+            )
             _ = reproject(
-                fine_ar, ar.data,
-                src_transform=fine_transform, dst_transform=self.transform,
-                src_crs=ds_crs, dst_crs=ds_crs,
-                src_nodata=nodata, dst_nodata=nodata,
-                resampling=resampling)
+                fine_ar,
+                ar.data,
+                src_transform=fine_transform,
+                dst_transform=self.transform,
+                src_crs=ds_crs,
+                dst_crs=ds_crs,
+                src_nodata=nodata,
+                dst_nodata=nodata,
+                resampling=resampling,
+            )
         else:
             self.logger.info(
                 "rasterizing features to %s array with all_touched=%s",
-                dtype, all_touched)
+                dtype,
+                all_touched,
+            )
             _ = features.rasterize(
-                geom_vals, self.shape, out=ar.data, transform=self.transform,
-                dtype=dtype, all_touched=all_touched)
+                geom_vals,
+                self.shape,
+                out=ar.data,
+                transform=self.transform,
+                dtype=dtype,
+                all_touched=all_touched,
+            )
         is_nodata = ar.data == nodata
         if is_nodata.any():
             ar.data[is_nodata] = fill
