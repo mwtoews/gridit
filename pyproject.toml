@@ -68,3 +68,6 @@ include = [
 
 [tool.setuptools_scm]
 write_to = "gridit/_version.py"
+
+[tool.isort]
+profile = "black"
