@@ -20,6 +20,8 @@ points_path = datadir / "waitaku2_points.shp"
 
 @requires_pkg("rasterio")
 def test_array_from_array(caplog):
+    from rasterio.enums import Resampling
+
     coarse_grid = Grid(8, (3, 4))
     fine_grid = Grid(4, (6, 8))
     # same resolution
@@ -62,6 +64,17 @@ def test_array_from_array(caplog):
             ]
         ),
     )
+    # specify resampling method
+    with caplog.at_level(logging.INFO):
+        out_ar = fine_grid.array_from_array(
+            coarse_grid, in_ar.astype(float), resampling="nearest"
+        )
+        assert "nearest resampling" in caplog.messages[-1]
+    with caplog.at_level(logging.INFO):
+        out_ar = fine_grid.array_from_array(
+            coarse_grid, in_ar.astype(float), resampling=Resampling.nearest
+        )
+        assert "nearest resampling" in caplog.messages[-1]
     # coarse to fine
     in_ar = np.arange(48).reshape((6, 8))
     with caplog.at_level(logging.INFO):
@@ -218,13 +231,30 @@ def test_array_from_raster_same_grid_nan(grid_from_raster):
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_refine():
+def test_array_from_raster_refine(caplog):
+    from rasterio.enums import Resampling
+
     # use bilinear resampling method
     grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
-    ar = grid.array_from_raster(mana_dem_path)
+    with caplog.at_level(logging.INFO):
+        ar = grid.array_from_raster(mana_dem_path)
+        assert "bilinear resampling" in caplog.messages[2]
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"
     assert ar.mask.sum() == 12802
+    np.testing.assert_almost_equal(ar.min(), 1.268, 3)
+    np.testing.assert_almost_equal(ar.max(), 103.592, 3)
+    # specify resampling method via str or enum
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        ar = grid.array_from_raster(mana_dem_path, resampling="nearest")
+        assert "nearest resampling" in caplog.messages[2]
+    np.testing.assert_almost_equal(ar.min(), 1.2556334, 3)
+    np.testing.assert_almost_equal(ar.max(), 103.65819, 3)
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        ar = grid.array_from_raster(mana_dem_path, resampling=Resampling.bilinear)
+        assert "bilinear resampling" in caplog.messages[2]
     np.testing.assert_almost_equal(ar.min(), 1.268, 3)
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
 
