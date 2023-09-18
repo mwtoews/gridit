@@ -15,7 +15,7 @@ def array_from_array(self, grid, array, resampling=None):
         Grid for array input.
     array : array_like
         Array data to regrid. If 3D, the first dimension is the band.
-    resampling : str or rasterio.enums.Resampling, optional
+    resampling : str, int or rasterio.enums.Resampling, optional
         Choose one from rasterio.enums.Resampling; default (None)
         automatically selects the best method based on the relative grid
         resolutions and data type.
@@ -74,7 +74,7 @@ def array_from_array(self, grid, array, resampling=None):
                 resampling = Resampling.mode
         else:
             raise ValueError()
-    else:
+    elif isinstance(resampling, str):
         resampling = rasterio.enums.Resampling[resampling]
     self.logger.info("using %s resampling method", resampling)
     if not rasterio.dtypes.check_dtype(array.dtype):
@@ -134,7 +134,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         Source raster data to regrid.
     bidx : int, optional
         Band index, default is 1 (the first).
-    resampling : str or rasterio.enums.Resampling, optional
+    resampling : str, int or rasterio.enums.Resampling, optional
         Choose one from rasterio.enums.Resampling; default (None)
         automatically selects the best method based on the relative grid
         resolutions and data type.
@@ -200,7 +200,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
                     resampling = Resampling.mode
             else:
                 raise ValueError()
-        else:
+        elif isinstance(resampling, str):
             resampling = rasterio.enums.Resampling[resampling]
         self.logger.info("using %s resampling method", resampling)
         grid_crs = self.projection
