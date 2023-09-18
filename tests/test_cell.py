@@ -25,7 +25,7 @@ def test_cell_geoms():
     assert isinstance(cg, np.ndarray)
     assert np.issubdtype(cg.dtype, np.object_)
     assert cg.shape == (6,)
-    assert set([g.geom_type for g in cg]) == {"Polygon"}
+    assert {g.geom_type for g in cg} == {"Polygon"}
     assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
     assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
     assert cg[0].exterior.coords[:] == first_poly_coords

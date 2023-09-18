@@ -83,7 +83,7 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
     assert len(stdout) > 0
     assert returncode == 0
     assert out_png.exists()
-    assert set(pth.name for pth in tmp_path.iterdir()).issuperset(
+    assert {pth.name for pth in tmp_path.iterdir()}.issuperset(
         {"out.shp", "out.shx", "out.dbf"}
     )
     assert not (tmp_path / "out.prj").exists()
@@ -122,7 +122,7 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
     assert len(stdout) > 0
     assert returncode == 0
     assert not out_txt.exists()
-    assert set(pth.name for pth in tmp_path.iterdir()).issuperset(
+    assert {pth.name for pth in tmp_path.iterdir()}.issuperset(
         {
             "out_max.txt",
             "out_quantile(0.75).txt",
