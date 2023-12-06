@@ -76,7 +76,7 @@ def array_from_array(self, grid, array, resampling=None):
             raise ValueError()
     elif isinstance(resampling, str):
         resampling = rasterio.enums.Resampling[resampling]
-    self.logger.info("using %s resampling method", resampling)
+    self.logger.info("using %s resampling method", resampling.name)
     if not rasterio.dtypes.check_dtype(array.dtype):
         dtype = rasterio.dtypes.get_minimum_dtype(array)
         self.logger.debug("changing array dtype from '%s' to '%s'", array.dtype, dtype)
@@ -202,7 +202,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
                 raise ValueError()
         elif isinstance(resampling, str):
             resampling = rasterio.enums.Resampling[resampling]
-        self.logger.info("using %s resampling method", resampling)
+        self.logger.info("using %s resampling method", resampling.name)
         grid_crs = self.projection
         if not grid_crs:
             if ds_crs:
@@ -492,7 +492,7 @@ class GridVectorData:
             self.logger.info(
                 "reprojecting from fine to coarse array using "
                 "%s resampling method and all_touched=%s",
-                resampling,
+                resampling.name,
                 all_touched,
             )
             _ = reproject(
