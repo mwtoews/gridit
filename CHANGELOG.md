@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5] - 2023-12-07
+### Added
+- Add vector (polygon) attributes and functions, including `cell_geoms` property, a `write_vector()` method.
+- Add `cell_geoseries()` and `cell_geodataframe()` methods.
+- Allow other geometry types to be used (not just polygon).
+### Changed
+- Change `array_from_vector` to use `refine=None`, to auto-select appropriate value.
+- Change `mask_from_vector` to `use refine=1` and `all_touched=True`.
+- Better filter for `Grid.from_vector` class method.
+- Build Grid from FloPy `modelgrid` object.
+### Fixed
+- Allow write_raster to write bool array; fix issue with nodata.
+- Fix resampling option for `array_from_raster` and `array_from_array`.
+
 ## [0.4] - 2022-11-09
 ### Added
 - Add `all_touched` option for `array_from_vector`.
@@ -32,7 +46,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.4...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.5...HEAD
+[0.5]: https://github.com/mwtoews/gridit/compare/0.4...0.5
 [0.4]: https://github.com/mwtoews/gridit/compare/0.3...0.4
 [0.3]: https://github.com/mwtoews/gridit/compare/0.2...0.3
 [0.2]: https://github.com/mwtoews/gridit/compare/0.1...0.2
