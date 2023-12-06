@@ -2,8 +2,6 @@
 
 from math import ceil, floor
 
-import numpy as np
-
 from gridit.logger import get_logger
 
 
