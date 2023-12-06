@@ -65,21 +65,21 @@ def cell_geoms(self, *, mask=None, order="C"):
     xvertices, yvertices = np.meshgrid(xedge, yedge)
 
     # arrays of coordinates for rectangle cells
-    I, J = np.ogrid[0:nrow, 0:ncol]
+    Ia, Ja = np.ogrid[0:nrow, 0:ncol]
     xverts = np.stack(
         [
-            xvertices[I, J],
-            xvertices[I, J + 1],
-            xvertices[I + 1, J + 1],
-            xvertices[I + 1, J],
+            xvertices[Ia, Ja],
+            xvertices[Ia, Ja + 1],
+            xvertices[Ia + 1, Ja + 1],
+            xvertices[Ia + 1, Ja],
         ]
     )
     yverts = np.stack(
         [
-            yvertices[I, J],
-            yvertices[I, J + 1],
-            yvertices[I + 1, J + 1],
-            yvertices[I + 1, J],
+            yvertices[Ia, Ja],
+            yvertices[Ia, Ja + 1],
+            yvertices[Ia + 1, Ja + 1],
+            yvertices[Ia + 1, Ja],
         ]
     )
     if order == "C":

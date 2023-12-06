@@ -405,7 +405,7 @@ class GridVectorData:
         return len(self.geoms)
 
     def empty_array(self, fill=0):
-        nodata = 0
+        # nodata = 0
         if self.attribute is None:
             dtype = "uint8"
         elif self.vdtype.startswith("float"):
