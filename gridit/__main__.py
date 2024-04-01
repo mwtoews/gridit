@@ -1,4 +1,5 @@
 """Command-line interface for grid package."""
+
 import sys
 from importlib.util import find_spec
 from pathlib import Path

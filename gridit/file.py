@@ -1,4 +1,5 @@
 """File methods."""
+
 from collections.abc import Iterable
 from pathlib import Path
 
