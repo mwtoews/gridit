@@ -1,6 +1,8 @@
 name: Tests
 
 on:
+  schedule:
+    - cron: '42 8 2-30/2 * *' # At 08:42 UTC on every 2nd day-of-month
   push:
     branches:
       - main
@@ -10,24 +12,24 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         # pick lower and upper versions only
         python-version: ["3.8", "3.12"]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Cache pip packages
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           key: ${{ matrix.python-version }}
           path: |
@@ -53,4 +55,7 @@ jobs:
           pytest -v gridit --doctest-modules
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

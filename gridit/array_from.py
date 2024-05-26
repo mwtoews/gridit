@@ -29,6 +29,7 @@ def array_from_array(self, grid, array, resampling=None):
     ------
     ModuleNotFoundError
         If rasterio is not installed.
+
     """
     try:
         import rasterio
@@ -148,6 +149,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
     ------
     ModuleNotFoundError
         If rasterio is not installed.
+
     """
     try:
         import rasterio
@@ -158,10 +160,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         raise ModuleNotFoundError("array_from_raster requires rasterio")
     self.logger.info("reading array from raster: %s, band %s", fname, bidx)
     with rasterio.open(fname, "r") as ds:
-        if ds.crs is None:
-            ds_crs = None
-        else:
-            ds_crs = ds.crs.to_wkt()
+        ds_crs = None if ds.crs is None else ds.crs.to_wkt()
         if ds.transform == self.transform and ds.shape == self.shape:
             self.logger.info("source raster matches grid info; reading full array")
             if ds_crs != self.projection:
@@ -190,15 +189,9 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
             if rel_res_diff <= 10.0:
                 resampling = Resampling.nearest
             elif ds_mean_res > self.resolution:
-                if is_floating:
-                    resampling = Resampling.bilinear
-                else:
-                    resampling = Resampling.nearest
+                resampling = Resampling.bilinear if is_floating else Resampling.nearest
             elif ds_mean_res < self.resolution:
-                if is_floating:
-                    resampling = Resampling.average
-                else:
-                    resampling = Resampling.mode
+                resampling = Resampling.average if is_floating else Resampling.mode
             else:
                 raise ValueError()
         elif isinstance(resampling, str):
@@ -245,6 +238,7 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
     Returns
     -------
     np.array
+
     """
     return self.array_from_raster(fname, bidx).mask
 
@@ -301,6 +295,7 @@ def array_from_vector(
     ------
     ModuleNotFoundError
         If fiona and/or rasterio is not installed.
+
     """
     if calc is not None:
         raise NotImplementedError("calc does nothing for now")
@@ -448,10 +443,7 @@ class GridVectorData:
                 nodata = vals.max() * 10.0
                 resampling = Resampling.average
             elif self.vdtype.startswith("int"):
-                if vals.min() > 0:
-                    nodata = 0
-                else:
-                    nodata = vals.max() + 1
+                nodata = 0 if vals.min() > 0 else vals.max() + 1
                 resampling = Resampling.mode
             else:
                 raise ValueError(f"attribute {self.attribute} is neither float or int")
@@ -542,6 +534,7 @@ def mask_from_vector(self, fname, *, layer=None):
     Returns
     -------
     np.array
+
     """
     ar = self.array_from_vector(fname, layer=layer, refine=1, all_touched=True)
     return ~ar.data.astype(bool)

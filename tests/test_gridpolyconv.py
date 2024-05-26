@@ -124,10 +124,8 @@ def test_caching(tmp_path):
 
 @pytest.fixture
 def waitaku2_index_values():
-    index = []
     with fiona.open(waitaku2_shp) as ds:
-        for f in ds:
-            index.append(f["properties"]["rid"])
+        index = [feat["properties"]["rid"] for feat in ds]
     values = np.array(index) / 1000.0 - 3040
     return index, values
 

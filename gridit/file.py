@@ -42,6 +42,7 @@ def write_raster(grid, array, fname, driver=None):
     ------
     ModuleNotFoundError
         If rasterio is not installed.
+
     """
     try:
         import rasterio
@@ -75,19 +76,15 @@ def write_raster(grid, array, fname, driver=None):
         if array.mask.all():
             nodata = 0
         elif np.issubdtype(array.dtype, np.integer):
-            if array.min() > 0:
-                nodata = 0
-            else:
-                nodata = array.max() + 1
+            nodata = 0 if array.min() > 0 else array.max() + 1
         else:
             nodata = array.fill_value
-            if array.dtype == np.float32:
-                if not float32_is_also_float64(nodata):
-                    # TODO: any better way to find fill_value?
-                    nodata = 3.28e9
-                    assert nodata not in array
-                    array = array.copy()
-                    array.nodata = nodata
+            if array.dtype == np.float32 and not float32_is_also_float64(nodata):
+                # TODO: any better way to find fill_value?
+                nodata = 3.28e9
+                assert nodata not in array
+                array = array.copy()
+                array.nodata = nodata
         kwds["nodata"] = nodata = array.dtype.type(nodata)
         array = array.filled(nodata)
     with rasterio.open(fname, "w", **kwds) as ds:
@@ -151,6 +148,7 @@ def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwarg
     ------
     ModuleNotFoundError
         If fiona and/or shapely is not installed.
+
     """
     try:
         import fiona
@@ -262,6 +260,7 @@ def fiona_filter_collection(ds, filter):
     ------
     ModuleNotFoundError
         If fiona is not installed.
+
     """
     try:
         import fiona

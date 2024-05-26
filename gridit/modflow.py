@@ -27,10 +27,7 @@ def get_modflow_model(model, model_name=None, logger=None):
         raise ValueError(f"cannot read path '{pth}'")
     elif (pth.is_dir() and (pth / "mfsim.nam").is_file()) or pth.name == "mfsim.nam":
         # MODFLOW 6
-        if pth.is_dir():
-            sim_ws = str(pth)
-        else:
-            sim_ws = str(pth.parent)
+        sim_ws = str(pth) if pth.is_dir() else str(pth.parent)
         if logger is not None:
             logger.info("reading mf6 simulation from '%s'", sim_ws)
         sim = flopy.mf6.MFSimulation.load(
@@ -53,7 +50,7 @@ def get_modflow_model(model, model_name=None, logger=None):
         elif model_name not in model_names:
             raise KeyError(f"model name {model_name} not found in {model_names}")
         model = sim.get_model(model_name)
-        setattr(model, "tdis", sim.tdis)  # this is a bit of a hack
+        model.tdis = sim.tdis  # this is a bit of a hack
         return model
     elif pth.is_file():  # assume 'classic' MOFLOW file
         with catch_warnings():
@@ -92,7 +89,8 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
     ------
     ModuleNotFoundError
         If flopy is not installed.
-    """
+
+    """  # noqa
     if find_spec("flopy") is None:
         raise ModuleNotFoundError("from_modflow requires flopy")
     if logger is None:
@@ -149,6 +147,7 @@ def mask_from_modflow(self, model, model_name=None):
     Returns
     -------
     np.array
+
     """
     mask_cache_key = (repr(model), model_name)
     if mask_cache_key in mask_cache:
