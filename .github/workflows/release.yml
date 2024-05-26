@@ -23,6 +23,11 @@ jobs:
       - name: Build dist
         run: hatch build
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gridit-build
+          path: dist/*
+
       - name: Publish on PyPI
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'release' && github.event.action == 'published'
         run: hatch publish
