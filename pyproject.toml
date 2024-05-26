@@ -34,7 +34,7 @@ optional = [
     "matplotlib",
     "netCDF4",
     "geopandas",
-    "rasterio",
+    "rasterio >=1.2.2",
     "scipy",
     "shapely",
     "xarray",

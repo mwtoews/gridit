@@ -9,6 +9,9 @@ __pycache__/
 # C extensions
 *.so
 
+# Test artefacts
+/tests/data/out/
+
 # Distribution / packaging
 .Python
 build/
