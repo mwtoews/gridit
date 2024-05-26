@@ -56,6 +56,7 @@ class GridPolyConv:
         ar_count divided by ``ar_count.sum(0)`` where non-zero.
     mask : array_like
         2D array used to set mask for outputs.
+
     """
 
     def __init__(self, poly_idx, idx_ar, ar_count=None, logger=None):
@@ -130,9 +131,10 @@ class GridPolyConv:
 
     def __eq__(self, other):
         """Return True if objects are equal."""
-        if self.__class__.__name__ != other.__class__.__name__:
-            return False
-        elif self.poly_idx != getattr(other, "poly_idx", None):
+        if (
+            self.__class__.__name__ != other.__class__.__name__
+            or self.poly_idx != getattr(other, "poly_idx", None)
+        ):
             return False
         try:
             np.testing.assert_array_equal(self.idx_ar, getattr(other, "idx_ar", None))
@@ -368,10 +370,7 @@ class GridPolyConv:
             fX, fY = np.ogrid[0:fx, 0:fy]
             cX = fX // refine
             cY = fY // refine
-            if refine >= 16:
-                frac_dtype = np.uint16
-            else:
-                frac_dtype = np.uint8
+            frac_dtype = np.uint16 if refine >= 16 else np.uint8
             # TODO: is there a better catch-all projection?
             ds_crs = CRS.from_epsg(3857)
             # total counts of non-zero idx_ar per cell
@@ -483,6 +482,7 @@ class GridPolyConv:
             File path where the pickled object will be stored.
         protocol : int, default 4
             Default 4 was introduced for Python 3.4.
+
         """
         with open(path, "wb") as f:
             pickle.dump(self, f, protocol=protocol)
@@ -515,6 +515,7 @@ class GridPolyConv:
             If values is 1D (npoly,), return a 2D array with (nrow, ncol).
             If values is 2D (extra, npoly), return a 3D array with
             (extra, nrow, ncol).
+
         """
         if not isinstance(index, list):
             try:
@@ -543,10 +544,7 @@ class GridPolyConv:
             raise ValueError("index is not a superset of poly_idx")
         if index != poly_idx_l:
             # subset and/or re-order values to match poly_idx
-            order = []
-            for idx in self.poly_idx:
-                if idx in index_s:
-                    order.append(index.index(idx))
+            order = [index.index(idx) for idx in self.poly_idx if idx in index_s]
             if values.ndim == 1:
                 values = values[order]
             else:  # ndim == 2
@@ -621,7 +619,7 @@ class GridPolyConv:
                 - "median" for the year with the total "middle" value
                 - "max" for the year with the total maximum value
                 - Other statistics "mean" and "quantile(N)" are not changed.
-            Examples:
+            Examples of time stats:
                 - "Jan-Mar:mean": evaluate mean values from January to March
                 - "Jul-Jun:min,max": get the NZ water year with the lowest
                     and highest mean monthly values
@@ -645,6 +643,7 @@ class GridPolyConv:
             If variables cannot be found in netCDF file.
         ValueError
             If there are errors with inputs or dimensions.
+
         """
         try:
             import xarray

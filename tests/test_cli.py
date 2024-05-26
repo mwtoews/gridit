@@ -19,12 +19,13 @@ def test_usage():
 
 @pytest.fixture
 def grid_from_bbox_args():
+    # fmt: off
     return [
-        # fmt: off
         module_name,
         "--grid-from-bbox", "1748762.8", "5448908.9", "1749509", "5449749",
-        "--resolution", "25",  # fmt: on
+        "--resolution", "25",
     ]
+    # fmt: on
 
 
 def test_grid_from_bbox(grid_from_bbox_args):
@@ -37,15 +38,16 @@ def test_grid_from_bbox(grid_from_bbox_args):
 @requires_pkg("rasterio")
 def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
     out_path = tmp_path / "out.tif"
+    # fmt: off
     stdout, stderr, returncode = run_cli(
-        # fmt: off
         grid_from_bbox_args
         + [
             "--array-from-raster", str(mana_tif) + ":1",
             "--array-from-raster-resampling", "nearest",
-            "--write-raster", str(out_path),  # fmt: on
+            "--write-raster", str(out_path),
         ]
     )
+    # fmt: on
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
@@ -68,8 +70,8 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
 
     out_png = tmp_path / "out.png"
     out_shp = tmp_path / "out.shp"
+    # fmt: off
     stdout, stderr, returncode = run_cli(
-        # fmt: off
         grid_from_bbox_args
         + [
             "--array-from-vector", mana_shp,
@@ -77,8 +79,9 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
             "--write-image", str(out_png),
             "--write-vector", str(out_shp),
             "--write-vector-attribute", "kmd",
-        ]  # fmt: on
+        ]
     )
+    # fmt: on
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
@@ -106,8 +109,8 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
 
     out_txt = tmp_path / "out.txt"
     out_shp = tmp_path / "out.shp"
+    # fmt: off
     args = [
-        # fmt: off
         module_name,
         "--grid-from-vector", waitaku2_shp,
         "--resolution", "250",
@@ -117,8 +120,9 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
         "--time-stats", "quantile(0.75),max",
         "--write-text", str(out_txt) + ":%12.7E",
         "--write-vector",
-        str(out_shp),  # fmt: on
+        str(out_shp),
     ]
+    # fmt: on
     with set_env(GRID_CACHE_DIR=str(tmp_path)):
         stdout, stderr, returncode = run_cli(args)
     assert len(stderr) == 0
@@ -163,16 +167,17 @@ def test_grid_from_modflow_classic(grid_from_bbox_args):
 @requires_pkg("fiona", "flopy")
 def test_grid_from_modflow_array_from_vector_attribute(tmp_path, grid_from_bbox_args):
     out_path = tmp_path / "out.txt"
+    # fmt: off
     stdout, stderr, returncode = run_cli(
         [
-            # fmt: off
             module_name,
             "--grid-from-modflow", str(modflow_dir / "mfsim.nam") + ":h6",
             "--array-from-vector", waitaku2_shp,
             "--array-from-vector-attribute", "rid",
-            "--write-text", str(out_path),  # fmt: on
+            "--write-text", str(out_path),
         ]
     )
+    # fmt: on
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0

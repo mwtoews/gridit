@@ -50,6 +50,7 @@ def flat_grid_intersect(this, other, method="vector"):
     Yields
     ------
     (this_idx_fraction, other_idx_fraction)
+
     """
     logger = this.logger or other.logger
     if not logger:

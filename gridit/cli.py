@@ -15,6 +15,7 @@ def add_grid_parser_arguments(parser):
     Returns
     -------
     None
+
     """
     grid_group = parser.add_argument_group(
         "Grid definition", "Use one of the --grid-from-* methods"
@@ -85,6 +86,7 @@ def process_grid_options(args, logger):
         If there is an issue with the argument(s); should show usage.
     OSError
         If the grid cannot be read.
+
     """
 
     def error_msg(msg: str, name: str = ""):
@@ -181,6 +183,7 @@ def process_nc_arg(arg):
     Raises
     ------
     ValueError
+
     """
     col_count = arg.count(":")
     if col_count == 2:

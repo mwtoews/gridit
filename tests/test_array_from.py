@@ -321,7 +321,10 @@ def test_array_from_vector(
             ), caplog.messages
     if write_files:
         hash = md5(ar.tobytes()).hexdigest()[:7]
-        fname = f"test_array_from_vector_{attribute}_{refine}_{all_touched}_{gdal_version()}_{hash}.tif"
+        fname = f"test_array_from_vector_{attribute}_{refine}_"
+        if all_touched:
+            fname += "all_touched_"
+        fname += f"{gdal_version()}_{hash}.tif"
         grid_from_vector_all.write_raster(ar, outdir / fname)
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
@@ -368,8 +371,10 @@ def test_array_from_vector_other_fill(
     )
     if write_files:
         hash = md5(ar.tobytes()).hexdigest()[:7]
-        outdir = datadir / "out"
-        fname = f"test_array_from_vector_other_fill_{refine}_{all_touched}_{gdal_version()}_{hash}.tif"
+        fname = f"test_array_from_vector_other_fill_{refine}_"
+        if all_touched:
+            fname += "all_touched_"
+        fname += f"{gdal_version()}_{hash}.tif"
         grid_from_vector_all.write_raster(ar, outdir / fname)
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)

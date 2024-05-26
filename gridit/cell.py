@@ -42,6 +42,7 @@ def cell_geoms(self, *, mask=None, order="C"):
     (1, 0): POLYGON ((0 -10, 10 -10, 10 -20, 0 -20, 0 -10))
     (1, 1): POLYGON ((10 -10, 20 -10, 20 -20, 10 -20, 10 -10))
     (1, 2): POLYGON ((20 -10, 30 -10, 30 -20, 20 -20, 20 -10))
+
     """
     try:
         import shapely
@@ -168,6 +169,7 @@ def cell_geoseries(self, *, mask=None, order="C"):
     >>> from gridit import Grid
     >>> grid = Grid(10, (2, 3), projection="EPSG:3857")
     >>> gs = grid.cell_geoseries()
+
     """
     try:
         import geopandas
@@ -228,6 +230,7 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
     3    1    0  1.0
     4    1    1  1.0
     5    1    2  1.0
+
     """
     try:
         import geopandas

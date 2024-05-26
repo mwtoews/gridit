@@ -86,9 +86,11 @@ def from_bbox(
 
     From shapely geometry:
     >>> from shapely import wkt
-    >>> domain = wkt.loads("POLYGON ((1685000 5359000, 1665000 5324000, 1620000 5360000, 1685000 5359000))")
+    >>> domain = wkt.loads("POLYGON ((1685000 5359000, 1665000 5324000, "
+    ...                              "1620000 5360000, 1685000 5359000))")
     >>> grid2 = Grid.from_bbox(*domain.bounds, 200, projection="EPSG:2193")
     >>> assert grid1 == grid2
+
     """
     if logger is None:
         logger = get_logger(cls.__name__)
@@ -127,6 +129,7 @@ def from_raster(
     ------
     ModuleNotFoundError
         If rasterio is not installed.
+
     """
     try:
         import rasterio
@@ -197,6 +200,7 @@ def from_vector(
     ------
     ModuleNotFoundError
         If fiona is not installed.
+
     """
     try:
         import fiona

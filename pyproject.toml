@@ -1,9 +1,6 @@
 [build-system]
-requires = [
-    "setuptools>=45",
-    "setuptools_scm[toml]>=6.2",
-]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [project]
 name = "gridit"
@@ -51,6 +48,15 @@ gridit = "gridit.__main__:cli_main"
 [project.urls]
 Repository = "https://github.com/mwtoews/gridit"
 
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "gridit/_version.py"
+
+[tool.hatch.build.targets.sdist]
+only-include = ["gridit", "tests"]
+
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
@@ -60,14 +66,14 @@ filterwarnings = [
     "ignore:numpy.ndarray size changed:RuntimeWarning",
 ]
 
-[tool.setuptools.packages.find]
-include = [
-    "gridit",
-    "gridit.*",
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "UP",  # pyupgrade
+    "I",  # isort
+    "NPY",  # NumPy-specific
 ]
 
-[tool.setuptools_scm]
-write_to = "gridit/_version.py"
-
-[tool.isort]
-profile = "black"
+[tool.ruff.lint.per-file-ignores]
+"**/{tests}/*" = ["D", "ANN"]
