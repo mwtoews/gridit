@@ -48,6 +48,7 @@ def requires_pkg(*pkgs):
 
 
 datadir = Path("tests") / "data"
+outdir = datadir / "out"
 
 
 @contextlib.contextmanager
@@ -116,3 +117,16 @@ def pytest_report_header(config):
     if not_found:
         lines.append("optional packages not found: " + ", ".join(not_found))
     return "\n".join(lines)
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--write-files", action="store_true", help="Write files to tests/data/out"
+    )
+
+
+@pytest.fixture
+def write_files(request):
+    if not outdir.exists():
+        outdir.mkdir()
+    return request.config.getoption("--write-files")

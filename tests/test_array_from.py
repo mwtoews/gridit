@@ -4,10 +4,11 @@ from hashlib import md5
 import numpy as np
 import pytest
 
-from .conftest import datadir, has_pkg, requires_pkg
+from .conftest import datadir, has_pkg, outdir, requires_pkg
 
 if has_pkg("rasterio"):
     import rasterio
+    from rasterio import gdal_version
 
 from gridit import Grid
 
@@ -133,69 +134,74 @@ def test_array_from_array(caplog):
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_all():
+def test_array_from_raster_all(write_files):
     grid = Grid(100, (24, 18), (1748600.0, 5451200.0))
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (24, 18)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
-    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
-    if mask_hash == "":  # todo: this was an older version?
-        assert ar.mask.sum() == 170
-        np.testing.assert_almost_equal(ar.min(), 1.833, 3)
-        np.testing.assert_almost_equal(ar.max(), 115.471, 3)
-    elif mask_hash == "d44fae9":
+    hash = md5(ar.tobytes()).hexdigest()[:7]
+    if write_files:
+        fname = f"test_array_from_raster_all_{gdal_version()}_{hash}.tif"
+        grid.write_raster(ar, outdir / fname)
+    if hash == "5b6815e":
         assert ar.mask.sum() == 182
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
-    elif mask_hash == "9f8b542":
+    elif hash == "b84b6ef":
         assert ar.mask.sum() == 170
         np.testing.assert_almost_equal(ar.min(), 1.810, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
+    elif hash == "cd4c1ce":
+        assert ar.mask.sum() == 171
+        np.testing.assert_almost_equal(ar.min(), 1.810, 3)
+        np.testing.assert_almost_equal(ar.max(), 115.688, 3)
     else:
-        raise AssertionError((mask_hash, ar.mask.sum()))
+        raise AssertionError((hash, ar.mask.sum()))
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_filter():
+def test_array_from_raster_filter(write_files):
     grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
-    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
-    if mask_hash == "":  # todo: this was an older version?
-        assert ar.mask.sum() == 32
-        np.testing.assert_almost_equal(ar.min(), 1.833, 3)
-        np.testing.assert_almost_equal(ar.max(), 101.613, 3)
-    elif mask_hash == "c408a2a":
+    hash = md5(ar.tobytes()).hexdigest()[:7]
+    if write_files:
+        fname = f"test_array_from_raster_filter_{gdal_version()}_{hash}.tif"
+        grid.write_raster(ar, outdir / fname)
+    if hash == "d7b8da4":
         assert ar.mask.sum() == 36
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 101.692, 3)
-    elif mask_hash == "95d7608":
+    elif hash == "0e8711a":
         assert ar.mask.sum() == 34
         np.testing.assert_almost_equal(ar.min(), 1.810, 3)
         np.testing.assert_almost_equal(ar.max(), 101.692, 3)
     else:
-        raise AssertionError((mask_hash, ar.mask.sum()))
+        raise AssertionError((hash, ar.mask.sum()))
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_filter_nan():
+def test_array_from_raster_filter_nan(write_files):
     grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
     ar = grid.array_from_raster(mana_hk_nan_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     # there are a few different possiblities, depending on GDAL version
-    mask_hash = md5(ar.mask.tobytes()).hexdigest()[:7]
-    if mask_hash == "4071d94":
+    hash = md5(ar.tobytes()).hexdigest()[:7]
+    if write_files:
+        fname = f"test_array_from_raster_filter_nan_{gdal_version()}_{hash}.tif"
+        grid.write_raster(ar, outdir / fname)
+    if hash == "ae56822":
         assert ar.mask.sum() == 32
         assert np.isnan(ar.data).sum() == 32
-    elif mask_hash == "bb113c4":
+    elif hash == "b8da817":
         assert ar.mask.sum() == 29
         assert np.isnan(ar.data).sum() == 29
     else:
-        raise AssertionError((mask_hash, ar.mask.sum()))
+        raise AssertionError((hash, ar.mask.sum()))
     np.testing.assert_almost_equal(ar.min(), 0.012, 3)
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
     assert np.isnan(ar.fill_value)
@@ -283,7 +289,7 @@ def grid_from_vector_all():
 @pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector(
-    caplog, grid_from_vector_all, attribute, refine, all_touched
+    write_files, caplog, grid_from_vector_all, attribute, refine, all_touched
 ):
     with caplog.at_level(logging.INFO):
         ar = grid_from_vector_all.array_from_vector(
@@ -313,6 +319,10 @@ def test_array_from_vector(
                 )
                 == 1
             ), caplog.messages
+    if write_files:
+        hash = md5(ar.tobytes()).hexdigest()[:7]
+        fname = f"test_array_from_vector_{attribute}_{refine}_{all_touched}_{gdal_version()}_{hash}.tif"
+        grid_from_vector_all.write_raster(ar, outdir / fname)
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
     if attribute is None:
@@ -324,14 +334,18 @@ def test_array_from_vector(
         assert ar.fill_value == 0.0
         assert ar.min() == pytest.approx(0.00012)
         assert ar.max() == pytest.approx(12.3)
-        assert (
-            len(np.unique(ar))
-            == {
-                1: 5,
-                2: 18,
-                5: 47 if all_touched is False else 44,
-            }[refine]
-        )
+        num_unique = len(np.unique(ar))
+        if refine == 1:
+            assert num_unique == 5
+        elif refine == 2:
+            assert num_unique in (17, 18)
+        elif refine == 5:
+            if all_touched:
+                assert num_unique in (44, 36)
+            else:
+                assert num_unique in (47, 38)
+        else:
+            raise KeyError(refine)
     if all_touched is False:
         expected_ar_mask_sum = {1: 193, 2: 175, 5: 165}[refine]
     else:
@@ -342,7 +356,9 @@ def test_array_from_vector(
 @requires_pkg("fiona", "rasterio")
 @pytest.mark.parametrize("refine", [None, 1, 2, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
-def test_array_from_vector_other_fill(grid_from_vector_all, refine, all_touched):
+def test_array_from_vector_other_fill(
+    write_files, grid_from_vector_all, refine, all_touched
+):
     ar = grid_from_vector_all.array_from_vector(
         mana_polygons_path,
         attribute="K_m_d",
@@ -350,22 +366,29 @@ def test_array_from_vector_other_fill(grid_from_vector_all, refine, all_touched)
         refine=refine,
         all_touched=all_touched,
     )
+    if write_files:
+        hash = md5(ar.tobytes()).hexdigest()[:7]
+        outdir = datadir / "out"
+        fname = f"test_array_from_vector_other_fill_{refine}_{all_touched}_{gdal_version()}_{hash}.tif"
+        grid_from_vector_all.write_raster(ar, outdir / fname)
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
     assert np.issubdtype(ar.dtype, np.floating)
     assert ar.fill_value == 1e10
     assert ar.min() == pytest.approx(0.00012)
     assert ar.max() == pytest.approx(12.3)
-    if refine is None:
-        refine = 5  # this is the default
-    assert (
-        len(np.unique(ar))
-        == {
-            1: 5,
-            2: 18,
-            5: 47 if all_touched is False else 44,
-        }[refine]
-    )
+    num_unique = len(np.unique(ar))
+    if refine == 1:
+        assert num_unique == 5
+    elif refine == 2:
+        assert num_unique in (17, 18)
+    elif refine in (None, 5):  # this is the default
+        if all_touched:
+            assert num_unique in (36, 44)
+        else:
+            assert num_unique in (47, 38)
+    else:
+        raise KeyError(refine)
 
 
 @requires_pkg("fiona", "rasterio")

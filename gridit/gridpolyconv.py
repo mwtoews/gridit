@@ -702,7 +702,7 @@ class GridPolyConv:
             "found variable %r with %d dims/shape: %s",
             var_name,
             var.ndim,
-            ", ".join(f"{k}: {v}" for k, v in zip(var.dims, var.shape)),
+            ", ".join(f"{k}: {v}" for k, v in var.sizes.items()),
         )
         if idx_name not in var.dims:
             var = var.swap_dims({idx_dims[0]: idx_name})
@@ -717,14 +717,14 @@ class GridPolyConv:
                     "using xidx; choosing index %s from size %s",
                     rem_dim,
                     xidx,
-                    ds.dims[rem_dim],
+                    ds.sizes[rem_dim],
                 )
             else:
                 self.logger.info(
                     "selecting xidx %s from %r with size %s",
                     xidx,
                     rem_dim,
-                    ds.dims[rem_dim],
+                    ds.sizes[rem_dim],
                 )
             var = var.loc[{rem_dim: xidx}]
         elif len(rem_dims) == 0 and xidx is not None:
@@ -781,13 +781,8 @@ class GridPolyConv:
                     yp[month < start_month] -= 1
                     data = yp.astype(str) + "-" + (yp + 1).astype(str)
                     year = xarray.DataArray(data, dims=year.dims, name="year")
-                    bogus = "bogus"
-                else:
-                    bogus = -1
                 if has_partial_month_sel:
-                    # use a bogus year to remove from mean
-                    year[~month_sel] = bogus
-                    var_mean = var.groupby(year).mean().drop_sel(year=bogus)
+                    var_mean = var.loc[month_sel].groupby(year[month_sel]).mean()
                 else:
                     var_mean = var.groupby(year).mean()
                 self.logger.debug(
@@ -804,9 +799,10 @@ class GridPolyConv:
                             weight_l[idx0] = self.weight[sel].sum()
                     weight = np.array(weight_l, dtype=float)
                     wvar = weight * var
-                wvar_mean = wvar.groupby(year).mean()
                 if has_partial_month_sel:
-                    wvar_mean = wvar_mean.drop_sel(year=bogus)
+                    wvar_mean = wvar.loc[month_sel].groupby(year[month_sel]).mean()
+                else:
+                    wvar_mean = wvar.groupby(year).mean()
                 wvar_year_total = wvar_mean.sum(idx_name)
             if has_partial_month_sel:
                 # select only the months specified
