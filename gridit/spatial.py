@@ -1,4 +1,5 @@
 """Spatial utilities module."""
+
 import re
 
 import numpy as np

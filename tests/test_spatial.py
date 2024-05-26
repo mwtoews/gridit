@@ -1,4 +1,5 @@
 """Test spatial methods."""
+
 from gridit import Grid
 from gridit.spatial import flat_grid_intersect, is_same_crs
 

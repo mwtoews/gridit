@@ -1,4 +1,5 @@
 """Grid.array_from_* and mask_from_* methods."""
+
 import numpy as np
 
 from gridit.display import shorten

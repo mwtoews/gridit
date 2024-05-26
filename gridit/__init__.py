@@ -1,4 +1,5 @@
 """Gridit package."""
+
 __license__ = "BSD"
 __author__ = "Mike Taves"
 __email__ = "mwtoews@gmail.com"
