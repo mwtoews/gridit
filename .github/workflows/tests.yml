@@ -2,7 +2,7 @@ name: Tests
 
 on:
   schedule:
-    - cron: '42 8 2-30/2 * *' # At 08:42 UTC on every 2nd day-of-month
+    - cron: '42 9 * * 2' # At 9:42 UTC on Tuesday
   push:
     branches:
       - main
