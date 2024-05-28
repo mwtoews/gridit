@@ -16,7 +16,7 @@ def test_grid_basic(grid_basic):
     assert grid.resolution == 10.0
     assert grid.shape == (20, 30)
     assert grid.top_left == (1000.0, 2000.0)
-    assert grid.projection == ""
+    assert grid.projection is None
 
 
 def test_grid_dict(grid_basic):
@@ -25,7 +25,7 @@ def test_grid_dict(grid_basic):
     assert grid_d["resolution"] == 10.0
     assert grid_d["shape"] == (20, 30)
     assert grid_d["top_left"] == (1000.0, 2000.0)
-    assert grid_d["projection"] == ""
+    assert grid_d["projection"] is None
 
 
 def test_grid_repr(grid_basic):

@@ -57,7 +57,7 @@ def test_grid_from_modflow_6(caplog):
         grid = Grid.from_modflow(modflow_dir / "mfsim.nam", "h6")
         assert len(caplog.messages) == 0
         assert grid == expected
-        assert grid.projection == ""
+        assert grid.projection is None
 
     grid = Grid.from_modflow(modflow_dir / "mfsim.nam", "h6", "EPSG:2193")
     # assert grid == expected
@@ -67,7 +67,7 @@ def test_grid_from_modflow_6(caplog):
         grid = Grid.from_modflow(modflow_dir / "mfsim.nam")
         assert "a model name should be specified" in caplog.messages[-1]
         assert grid == expected
-        assert grid.projection == ""
+        assert grid.projection is None
 
     # also rasises logger warning
     grid = Grid.from_modflow(modflow_dir)
@@ -77,7 +77,7 @@ def test_grid_from_modflow_6(caplog):
     with pytest.warns(UserWarning, match="model name should be specified"):
         model = get_modflow_model(modflow_dir / "mfsim.nam")
     grid = Grid.from_modflow(model.modelgrid)
-    assert grid.projection == ""
+    assert grid.projection is None
     assert grid.shape == (18, 17)
     assert grid.resolution == 1000.0
 

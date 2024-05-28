@@ -17,6 +17,7 @@ mana_polygons_path = datadir / "Mana_polygons.shp"
 mana_hk_nan_path = datadir / "Mana_hk_nan.tif"
 lines_path = datadir / "waitaku2_lines.shp"
 points_path = datadir / "waitaku2_points.shp"
+nocrs_path = datadir / "nocrs.tif"
 
 
 @requires_pkg("rasterio")
@@ -577,10 +578,20 @@ def test_array_from_vector_lines(caplog, attribute, refine, all_touched):
 @requires_pkg("rasterio")
 def test_array_from_raster_no_projection():
     grid = Grid.from_bbox(1748762.8, 5448908.9, 1749509, 5449749, 25)
-    assert grid.projection == ""
+    assert grid.projection is None
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 160
+
+
+@requires_pkg("rasterio")
+def test_array_from_raster_without_projection():
+    grid = Grid.from_raster(nocrs_path)
+    assert grid.projection is None
+    ar = grid.array_from_raster(nocrs_path)
+    assert ar.shape == (2, 3)
+    assert ar.mask.sum() == 0
+    np.testing.assert_array_equal(ar, np.arange(6).reshape(2, 3))
 
 
 @requires_pkg("rasterio")
@@ -608,7 +619,7 @@ def test_array_from_raster_different_projection():
 @requires_pkg("fiona", "rasterio")
 def test_array_from_vector_no_projection():
     grid = Grid.from_bbox(1748762.8, 5448908.9, 1749509, 5449749, 25)
-    assert grid.projection == ""
+    assert grid.projection is None
     ar = grid.array_from_vector(mana_polygons_path, attribute="K_m_d", refine=1)
     assert ar.shape == (34, 31)
     assert ar.mask.sum() == 146
