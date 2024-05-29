@@ -8,6 +8,8 @@ mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
 lines_path = datadir / "waitaku2_lines.shp"
 points_path = datadir / "waitaku2_points.shp"
+nocrs_path = datadir / "nocrs.tif"
+nocrspoints_path = datadir / "points.csv"
 
 
 def test_grid_from_bbox():
@@ -61,6 +63,14 @@ def test_grid_from_raster_buffer():
     assert grid == expected
 
 
+@requires_pkg("rasterio")
+def test_grid_from_raster_nocrs():
+    grid = Grid.from_raster(nocrs_path)
+    expected = Grid(10.0, (2, 3), (1749700.0, 5449800.0))
+    assert grid == expected
+    assert grid.projection is None
+
+
 @requires_pkg("fiona")
 def test_grid_from_vector_point():
     # all
@@ -81,6 +91,15 @@ def test_grid_from_vector_point():
     grid = Grid.from_vector(points_path, 250, {"id": 5}, buffer=240)
     expected = Grid(250.0, (2, 2), (1811750.0, 5869250.0), grid.projection)
     assert grid == expected
+
+
+@requires_pkg("fiona")
+def test_grid_from_vector_nocrs():
+    # all
+    grid = Grid.from_vector(nocrspoints_path, 250)
+    expected = Grid(250.0, (8, 6), (1748750.0, 5451000.0))
+    assert grid == expected
+    assert grid.projection is None
 
 
 @requires_pkg("fiona")

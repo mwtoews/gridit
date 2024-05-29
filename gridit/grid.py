@@ -1,5 +1,7 @@
 """Grid class and spatial tools to read array datasets."""
 
+from typing import Optional
+
 __all__ = ["Grid"]
 mask_cache = {}
 
@@ -15,7 +17,7 @@ class Grid:
         2D array shape (nrow, ncol).
     top_left : tuple, default (0.0, 0.0)
         Top left corner coordinate.
-    projection : str, default ""
+    projection : optional str, default None
         WKT coordinate reference system string.
     logger : logging.Logger, optional
         Logger to show messages.
@@ -44,7 +46,7 @@ class Grid:
         resolution: float,
         shape: tuple,
         top_left: tuple = (0.0, 0.0),
-        projection: str = "",
+        projection: Optional[str] = None,
         logger=None,
     ):
         if logger is None:
@@ -60,7 +62,7 @@ class Grid:
         if len(top_left) != 2:
             raise ValueError("expected top_left to contain two values")
         self.top_left = tuple(float(v) for v in top_left)
-        self.projection = str(projection)
+        self.projection = str(projection) if projection else None
 
     def __iter__(self):
         """Return object datasets with an iterator."""

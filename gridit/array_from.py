@@ -341,9 +341,14 @@ class GridVectorData:
             grid_crs = grid.projection
             do_transform = False
             if not grid_crs:
-                self.logger.info("assuming same projection: %s", shorten(grid_crs, 60))
+                self.logger.info("geometries not transformed: grid has no projection")
+            elif not ds_crs:
+                self.logger.info("geometries not transformed: vector has no projection")
             elif is_same_crs(grid_crs, ds_crs):
-                self.logger.info("same projection: %s", shorten(grid_crs, 60))
+                self.logger.info(
+                    "geometries not transformed: same projection: %s",
+                    shorten(grid_crs, 60),
+                )
             else:
                 do_transform = True
                 self.logger.info(

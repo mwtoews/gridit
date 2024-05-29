@@ -12,7 +12,7 @@ __all__ = [
 ]
 
 
-def is_same_crs(wkt1, wkt2):
+def is_same_crs(wkt1: str, wkt2: str) -> bool:
     """Determine if two CRS strings (as WKT) are nearly the same.
 
     First try to compare simple EPSG codes. Otherwise, use

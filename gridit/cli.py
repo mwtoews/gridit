@@ -161,10 +161,7 @@ def process_grid_options(args, logger):
         if ":" in model and (split := model.rindex(":")) > 1:
             model = args.grid_from_modflow[:split]
             model_name = args.grid_from_modflow[(1 + split) :]
-        if args.projection == "":
-            projection = None
-        else:
-            projection = args.projection
+        projection = args.projection if args.projection else None
         grid = Grid.from_modflow(model, model_name, projection=projection)
         mask = grid.mask_from_modflow(model, model_name=model_name)
     else:

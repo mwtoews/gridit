@@ -1,6 +1,7 @@
 """Grid from_* classmethods."""
 
 from math import ceil, floor
+from typing import Optional
 
 from gridit.logger import get_logger
 
@@ -51,7 +52,7 @@ def from_bbox(
     maxy: float,
     resolution: float,
     buffer: float = 0.0,
-    projection: str = "",
+    projection: Optional[str] = None,
     logger=None,
 ):
     """Create grid information from a bounding box and resolution.
@@ -68,7 +69,7 @@ def from_bbox(
         A grid resolution, e.g. 250.0 for 250m x 250m
     buffer : float, default 0.0
         Add buffer to extents of bounding box.
-    projection : str, default ""
+    projection : optional str, default None
         Coordinate reference system described as a string either as (e.g.)
         EPSG:2193 or a WKT string.
     logger : logging.Logger, optional
@@ -138,10 +139,12 @@ def from_raster(
     if logger is None:
         logger = get_logger(cls.__name__)
     logger.info("creating from raster: %s", fname)
+    projection = None
     with rasterio.open(fname, "r") as ds:
         t = ds.transform
         shape = ds.shape
-        projection = ds.crs.to_wkt()
+        if ds.crs:
+            projection = ds.crs.to_wkt()
     if t.e != -t.a:
         logger.error("expected e == -a, but %r != %r", t.e, t.a)
     if t.b != 0 or t.d != 0:

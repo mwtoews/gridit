@@ -49,7 +49,10 @@ def print_array(ar, logger=None):
         else:
             im -= im.min()
             im /= im.max()
-        msk = ndimage.zoom(ar.mask, zf, order=0, cval=True)
+        if ar.mask.shape:
+            msk = ndimage.zoom(ar.mask, zf, order=0, cval=True)
+        else:
+            msk = np.full(im.shape, ar.mask)
         col = ".;-:!>7?8CO$QHNM"
         string = ""
         height, width = im.shape
