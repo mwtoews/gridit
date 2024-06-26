@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6] - 2024-06-26
+### Changed
+- Change `Grid(projection)` to be `None` (#34).
+- Change build to hatch, use only ruff format and lint tools, add workflow to publish to PyPI (#33).
+### Fixed
+- Fix tests with latest numpy, xarray, fiona and rasterio/GDAL versions (#32).
+
 ## [0.5] - 2023-12-07
 ### Added
 - Add vector (polygon) attributes and functions, including `cell_geoms` property, a `write_vector()` method.
@@ -46,7 +53,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.5...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.6...HEAD
+[0.6]: https://github.com/mwtoews/gridit/compare/0.5...0.6
 [0.5]: https://github.com/mwtoews/gridit/compare/0.4...0.5
 [0.4]: https://github.com/mwtoews/gridit/compare/0.3...0.4
 [0.3]: https://github.com/mwtoews/gridit/compare/0.2...0.3
