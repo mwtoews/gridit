@@ -327,13 +327,23 @@ class GridVectorData:
             self.vals = []
         self.geoms = []
         self.geomds = []
+        layers = fiona.listlayers(fname)
         if layer is None:
-            layers = fiona.listlayers(fname)
             if len(layers) > 1:
                 self.logger.warning(
                     "choosing the first of %d layers: %s", len(layers), layers
                 )
                 layer = layers[0]
+        elif layer not in layers:
+            # show error message before fiona/GDAL raise error with "Null layer"
+            if len(layers) == 1:
+                self.logger.error(
+                    "layer %r does not match vector source layer %r", layer, layers[0]
+                )
+            else:
+                self.logger.error(
+                    "layer %r nout found in source layers: %r", layer, layers
+                )
         with fiona.open(fname, "r", layer=layer) as ds:
             self.geom_type = ds.schema["geometry"]
             self.logger.info("processing %s geometry data", self.geom_type)

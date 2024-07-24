@@ -212,11 +212,19 @@ def from_vector(
     if logger is None:
         logger = get_logger(cls.__name__)
     logger.info("reading from a vector source: %s", fname)
+    layers = fiona.listlayers(fname)
     if layer is None:
-        layers = fiona.listlayers(fname)
         if len(layers) > 1:
             logger.warning("choosing the first of %d layers: %s", len(layers), layers)
             layer = layers[0]
+    elif layer not in layers:
+        # show error message before fiona/GDAL raise error with "Null layer"
+        if len(layers) == 1:
+            logger.error(
+                "layer %r does not match vector source layer %r", layer, layers[0]
+            )
+        else:
+            logger.error("layer %r nout found in source layers: %r", layer, layers)
     with fiona.open(fname, "r", layer=layer) as ds:
         projection = ds.crs_wkt
         if filter:
