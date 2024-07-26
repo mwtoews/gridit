@@ -2,6 +2,7 @@
 
 __all__ = ["disable_logger", "get_logger", "module_logger"]
 
+import inspect
 import logging
 from contextlib import contextmanager
 
@@ -44,3 +45,11 @@ def get_logger(name, level=None):
         level = module_logger.level
     logger.setLevel(level)
     return logger
+
+
+def logger_factory():
+    """Return a named module logger."""
+    curframe = inspect.currentframe()
+    calframe = inspect.getouterframes(curframe, 2)
+    name = calframe[1][3]
+    return get_logger(name)

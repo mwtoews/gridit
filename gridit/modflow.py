@@ -1,20 +1,118 @@
 """Modflow methods."""
 
+from dataclasses import dataclass, field
 from importlib.util import find_spec
+from os import PathLike
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Optional, Union
 from warnings import catch_warnings, filterwarnings, warn
 
+import numpy as np
+import numpy.typing as npt
+
 from gridit.grid import mask_cache
-from gridit.logger import get_logger
+from gridit.logger import get_logger, logger_factory
+
+
+@dataclass
+class ModelGrid:
+    """Light-weight modelgrid object."""
+
+    delr: npt.NDArray[np.floating] = field(repr=False)
+    delc: npt.NDArray[np.floating] = field(repr=False)
+    domain: npt.NDArray[np.integer] = field(repr=False)
+    xoffset: float = 0.0
+    yoffset: float = 0.0
+    rotation: float = 0.0
+    projection: Optional[str] = None
+    logger: npt.NDArray[np.integer] = field(default_factory=logger_factory, repr=False)
+
+    def __post_init__(self):
+        self.logger = get_logger(self.__class__.__name__)
+
+        self.delr = np.asarray(self.delr)
+        if self.delr.ndim != 1:
+            raise ValueError("model delr is not a 1-d array")
+        delr = self.delr[0]
+        if not (self.delr == delr).all():
+            raise ValueError("model delr is not constant")
+
+        self.delc = np.asarray(self.delc)
+        if self.delc.ndim != 1:
+            raise ValueError("model delc is not a 1-d array")
+        delc = self.delc[0]
+        if not (self.delc == delc).all():
+            raise ValueError("model delc is not constant")
+        elif delr != delc:
+            raise ValueError("model delr and delc are different")
+
+        if self.rotation != 0:
+            self.logger.error("rotated model grids are not supported")
+
+        self.domain = np.asarray(self.domain)
+        if self.domain.ndim == 1:
+            nrow = self.delc.size
+            ncol = self.delr.size
+            nlay = self.domain.size // (nrow * ncol)
+            self.domain.shape = (nlay, nrow, ncol)
+        elif self.domain.ndim not in (2, 3):
+            raise ValueError("model domain is not a 2- or 3-d array")
+
+    @classmethod
+    def from_modflow(
+        cls, file_or_dir: Union[str, PathLike], model_name=None, logger=None
+    ):
+        """Create from MODFLOW file or directory."""
+        m = get_modflow_model(file_or_dir, model_name=model_name)
+        return cls.from_modelgrid(m.modelgrid, logger=logger)
+
+    @classmethod
+    def from_modelgrid(cls, mg, logger=None):
+        """Create from flopy's modelgrid object."""
+        attrs = ["delr", "delc", "idomain", "xoffset", "yoffset", "angrot", "crs"]
+        mg_name = {"idomain": "domain", "angrot": "rotation", "crs": "projection"}
+        kwargs = {mg_name.get(attr, attr): getattr(mg, attr) for attr in attrs}
+        if kwargs["projection"] is None:
+            epsg = getattr(mg, "epsg")
+            if isinstance(epsg, int):
+                kwargs["projection"] = f"EPSG:{epsg}"
+            else:
+                kwargs["projection"] = getattr(mg, "proj4")
+        return cls(**kwargs, logger=logger)
+
+    @property
+    def top_left(self):
+        return (self.xoffset, self.yoffset + np.sum(self.delc))
+
+    @property
+    def shape(self):
+        return self.domain.shape[-2:]
+
+    def to_grid(self):
+        """Returns Grid object."""
+        from gridit.grid import Grid
+
+        return Grid(
+            resolution=self.delr[0].item(),
+            shape=self.shape,
+            top_left=self.top_left,
+            projection=self.projection,
+            logger=self.logger,
+        )
 
 
 def get_modflow_model(model, model_name=None, logger=None):
-    """Return model object from str or Path."""
+    """Return model object from str or Path.
+
+    Parameters
+    ----------
+    model : str or PathLike
+        Path to a MODFLOW 6 file (mfsim.nam or TODO)
+    """
     import flopy
 
     if hasattr(model, "xoffset"):
-        from types import SimpleNamespace
-
         tmpobj = SimpleNamespace()
         tmpobj.modelgrid = model
         return tmpobj  # dummy object with a modelgrid atrib
@@ -25,6 +123,14 @@ def get_modflow_model(model, model_name=None, logger=None):
     pth = Path(model).resolve()
     if not pth.exists():
         raise ValueError(f"cannot read path '{pth}'")
+    elif pth.suffixes[-2:] == [".dis", ".grb"]:
+        # Binary grid file
+        if logger is not None:
+            logger.info("reading grid from a binary grid file: %s", pth)
+        if model_name:
+            if logger is not None:
+                logger.warning("ignoring model_name '%s'", model_name)
+        return flopy.mf6.utils.MfGrdFile(pth)
     elif (pth.is_dir() and (pth / "mfsim.nam").is_file()) or pth.name == "mfsim.nam":
         # MODFLOW 6
         sim_ws = str(pth) if pth.is_dir() else str(pth.parent)
@@ -55,14 +161,17 @@ def get_modflow_model(model, model_name=None, logger=None):
     elif pth.is_file():  # assume 'classic' MOFLOW file
         with catch_warnings():
             filterwarnings("ignore", category=UserWarning)
-            model = flopy.modflow.Modflow.load(
-                pth.name,
-                model_ws=str(pth.parent),
-                load_only=["dis", "bas6"],
-                check=False,
-                verbose=False,
-                forgive=True,
-            )
+            try:
+                model = flopy.modflow.Modflow.load(
+                    pth.name,
+                    model_ws=str(pth.parent),
+                    load_only=["dis", "bas6"],
+                    check=False,
+                    verbose=False,
+                    forgive=True,
+                )
+            except UnicodeDecodeError:
+                raise ValueError(f"cannot open MODFLOW file '{pth}'")
         return model
     raise ValueError(f"cannot determine how to read MODFLOW model '{pth}'")
 
@@ -73,9 +182,9 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
 
     Parameters
     ----------
-    model : str, Path, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.grid
+    model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.grid
         MODFLOW model specified either as a FloPy object, or path to
-        a MODFLOW file.
+        a MODFLOW file (either TODO).
     model_name : str or None (default)
         Needed if MODFLOW 6 simulation has more than one model.
     projection : str, default None
@@ -97,10 +206,11 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
         logger = get_logger(cls.__name__)
     logger.info(
         "creating from a MODFLOW model: %s",
-        model if isinstance(model, str) else type(model),
+        model if isinstance(model, (str, PathLike)) else type(model),
     )
     mask_cache_key = (repr(model), model_name)
     model = get_modflow_model(model, model_name, logger)
+    modelgrid = ModelGrid.from_modelgrid(model.modelgrid)
     modelgrid = model.modelgrid
     delr = modelgrid.delr[0]
     delc = modelgrid.delc[0]
