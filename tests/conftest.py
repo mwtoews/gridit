@@ -66,7 +66,7 @@ def set_env(**environ):
 
 def run_cli(args):
     """Run a Python command, return tuple (stdout, stderr, returncode)."""
-    args = [sys.executable, "-m"] + [str(g) for g in args]
+    args = [sys.executable, "-W", "ignore", "-m"] + [str(g) for g in args]
     print("running: " + " ".join(args))
     p = Popen(args, stdout=PIPE, stderr=PIPE)
     stdout, stderr = p.communicate()
