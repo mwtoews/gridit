@@ -160,16 +160,39 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         raise ModuleNotFoundError("array_from_raster requires rasterio")
     self.logger.info("reading array from raster: %s, band %s", fname, bidx)
     with rasterio.open(fname, "r") as ds:
+        ds_nodata = ds.nodata
+        unset_nodata = ds_nodata is None
         ds_crs = None if ds.crs is None else ds.crs.to_wkt()
         if ds.transform == self.transform and ds.shape == self.shape:
             self.logger.info("source raster matches grid info; reading full array")
             if ds_crs != self.projection:
                 self.logger.error("source projection is different than grid")
             ar = ds.read(bidx, masked=True)
+            if unset_nodata:
+                ar_is_nan = np.isnan(ar.data)
+                if np.isnan(ar.data).any():
+                    self.logger.warning("implicitly setting nodata as nan")
+                    ar.mask |= ar_is_nan
+                    ar.fill_value = np.nan
             return ar
 
+        grid_crs = self.projection
+        if not grid_crs:
+            if ds_crs:
+                grid_crs = ds_crs
+                self.logger.info("assuming same projection: %s", shorten(grid_crs, 60))
+            else:
+                # TODO: is there a better catch-all projection?
+                grid_crs = ds_crs = CRS.from_epsg(3857)
+
         band = rasterio.band(ds, bidx)
-        ar = np.ma.zeros(self.shape, band.dtype)
+        if ds_nodata is None:
+            val = np.zeros(1, band.dtype)
+            ds_nodata = np.ma.default_fill_value(val)
+            self.logger.debug("implicitly setting nodata as %r", ds_nodata)
+        else:
+            self.logger.debug("filling array with nodata %r", ds_nodata)
+        ar = np.ma.array(np.full(self.shape, ds_nodata, band.dtype))
         ds_mean_res = np.mean(ds.res)
         rel_res_diff = abs((ds_mean_res - self.resolution) / self.resolution) * 100
         if rel_res_diff == 0.0:
@@ -197,31 +220,31 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
         elif isinstance(resampling, str):
             resampling = rasterio.enums.Resampling[resampling]
         self.logger.info("using %s resampling method", resampling.name)
-        grid_crs = self.projection
-        if not grid_crs:
-            if ds_crs:
-                grid_crs = ds_crs
-                self.logger.info("assuming same projection: %s", shorten(grid_crs, 60))
-            else:
-                # TODO: is there a better catch-all projection?
-                grid_crs = ds_crs = CRS.from_epsg(3857)
 
-        _ = reproject(
-            band,
-            ar.data,
+        reproject_kwds = dict(
             src_transform=ds.transform,
             dst_transform=self.transform,
             src_crs=ds_crs,
             dst_crs=grid_crs,
-            dst_nodata=ds.nodata,
+            dst_nodata=ds_nodata,
             resampling=resampling,
         )
-        if ds.nodata is not None:
-            if np.isnan(ds.nodata):
-                ar.mask = np.isnan(ar.data)
-                ar.fill_value = np.nan
-            else:
-                ar.mask = ar.data == ds.nodata
+        _ = reproject(band, ar.data, **reproject_kwds)
+        ar_is_nan = np.isnan(ar.data)
+        if unset_nodata and ar_is_nan.any():
+            self.logger.debug("2nd reproject, implicitly setting nodata as %r", np.nan)
+            ar.fill(np.nan)
+            reproject_kwds.update(dict(dst_nodata=np.nan, src_nodata=np.nan))
+            _ = reproject(band, ar.data, **reproject_kwds)
+            ar_is_nan = np.isnan(ar.data)
+        if (np.isnan(ds_nodata) or unset_nodata) and ar_is_nan.any():
+            ar.mask |= ar_is_nan
+            ar.fill_value = np.nan
+        else:
+            new_mask = ar.data == ds_nodata
+            if new_mask.any():
+                ar.mask |= new_mask
+            ar.fill_value = ds_nodata
     return ar
 
 
@@ -240,7 +263,12 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
     np.array
 
     """
-    return self.array_from_raster(fname, bidx).mask
+    ar = self.array_from_raster(fname, bidx)
+    # return ar.mask
+    if ar.mask.shape:
+        return ar.mask
+    else:
+        return np.full(ar.shape, ar.mask)
 
 
 def array_from_vector(

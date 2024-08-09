@@ -15,6 +15,10 @@ from gridit import Grid
 mana_dem_path = datadir / "Mana.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
 mana_hk_nan_path = datadir / "Mana_hk_nan.tif"
+# below is same as above, but without nodata set
+mana_unset_nodata_nan_path = datadir / "Mana_unset-nodata_nan.tif"
+# below is same as Mana.tif but nodata is filled with zeros
+mana_unset_nodata_zeros_path = datadir / "Mana_unset-nodata_zeros.tif"
 lines_path = datadir / "waitaku2_lines.shp"
 points_path = datadir / "waitaku2_points.shp"
 nocrs_path = datadir / "nocrs.tif"
@@ -140,20 +144,21 @@ def test_array_from_raster_all(write_files):
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (24, 18)
     assert ar.dtype == "float32"
+    assert ar.fill_value == -32767.0
     # there are a few different possiblities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
         fname = f"test_array_from_raster_all_{gdal_version()}_{hash}.tif"
         grid.write_raster(ar, outdir / fname)
-    if hash == "5b6815e":
+    if hash == "6859a1e":
         assert ar.mask.sum() == 182
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
-    elif hash == "b84b6ef":
+    elif hash == "b84b6ef":  # TODO: update or remove
         assert ar.mask.sum() == 170
         np.testing.assert_almost_equal(ar.min(), 1.810, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
-    elif hash == "cd4c1ce":
+    elif hash == "5c275ca":
         assert ar.mask.sum() == 171
         np.testing.assert_almost_equal(ar.min(), 1.810, 3)
         np.testing.assert_almost_equal(ar.max(), 115.688, 3)
@@ -162,21 +167,36 @@ def test_array_from_raster_all(write_files):
 
 
 @requires_pkg("rasterio")
+def test_array_from_raster_unset_nodata():
+    # slightly smaller grid to avoid outside areas
+    grid = Grid(100, (22, 16), (1748700.0, 5451100.0))
+    ar = grid.array_from_raster(mana_unset_nodata_zeros_path)
+    assert ar.shape == (22, 16)
+    assert ar.dtype == "float32"
+    assert ar.fill_value == pytest.approx(np.ma.default_fill_value(np.float32(0)))
+    np.testing.assert_equal(ar.min(), 0.0)
+    np.testing.assert_almost_equal(ar.max(), 115.688, 3)
+    assert ar.mask.shape == ()
+    assert ar.mask.sum() == 0
+
+
+@requires_pkg("rasterio")
 def test_array_from_raster_filter(write_files):
     grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
     ar = grid.array_from_raster(mana_dem_path)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
+    assert ar.fill_value == -32767.0
     # there are a few different possiblities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
         fname = f"test_array_from_raster_filter_{gdal_version()}_{hash}.tif"
         grid.write_raster(ar, outdir / fname)
-    if hash == "d7b8da4":
+    if hash == "9e77ae0":
         assert ar.mask.sum() == 36
         np.testing.assert_almost_equal(ar.min(), 2.521, 3)
         np.testing.assert_almost_equal(ar.max(), 101.692, 3)
-    elif hash == "0e8711a":
+    elif hash == "713b9dd":
         assert ar.mask.sum() == 34
         np.testing.assert_almost_equal(ar.min(), 1.810, 3)
         np.testing.assert_almost_equal(ar.max(), 101.692, 3)
@@ -185,16 +205,21 @@ def test_array_from_raster_filter(write_files):
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_filter_nan(write_files):
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_array_from_raster_filter_nan(write_files, fname):
     grid = Grid(100, (14, 13), (1749100.0, 5450400.0))
-    ar = grid.array_from_raster(mana_hk_nan_path)
+    ar = grid.array_from_raster(fname)
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
+    assert np.isnan(ar.fill_value)
     # there are a few different possiblities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
-        fname = f"test_array_from_raster_filter_nan_{gdal_version()}_{hash}.tif"
-        grid.write_raster(ar, outdir / fname)
+        outfname = (
+            "test_array_from_raster_filter_nan"
+            f"_{fname.stem}_{gdal_version()}_{hash}.tif"
+        )
+        grid.write_raster(ar, outdir / outfname)
     if hash == "ae56822":
         assert ar.mask.sum() == 32
         assert np.isnan(ar.data).sum() == 32
@@ -205,7 +230,6 @@ def test_array_from_raster_filter_nan(write_files):
         raise AssertionError((hash, ar.mask.sum()))
     np.testing.assert_almost_equal(ar.min(), 0.012, 3)
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
-    assert np.isnan(ar.fill_value)
 
 
 @pytest.fixture
@@ -218,6 +242,7 @@ def test_array_from_raster_same_grid(grid_from_raster):
     ar = grid_from_raster.array_from_raster(mana_dem_path)
     assert ar.shape == (278, 209)
     assert ar.dtype == "float32"
+    assert ar.fill_value == -32767.0
     assert ar.mask.sum() == 23782
     with rasterio.open(mana_dem_path, "r") as ds:
         expected = ds.read(1, masked=True)
@@ -225,15 +250,32 @@ def test_array_from_raster_same_grid(grid_from_raster):
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_same_grid_nan(grid_from_raster):
-    ar = grid_from_raster.array_from_raster(mana_hk_nan_path)
+def test_array_from_raster_same_grid_zeros(grid_from_raster):
+    ar = grid_from_raster.array_from_raster(mana_unset_nodata_zeros_path)
     assert ar.shape == (278, 209)
     assert ar.dtype == "float32"
-    assert ar.mask.sum() == 21151
+    assert ar.fill_value == pytest.approx(np.ma.default_fill_value(np.float32(0)))
+    assert ar.mask.sum() == 0
+    assert ar.mask.shape == ()
+    with rasterio.open(mana_unset_nodata_zeros_path, "r") as ds:
+        expected = ds.read(1)
+    np.testing.assert_equal(ar.data, expected)
+
+
+@requires_pkg("rasterio")
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_array_from_raster_same_grid_nan(grid_from_raster, fname):
+    ar = grid_from_raster.array_from_raster(fname)
+    assert ar.shape == (278, 209)
+    assert ar.dtype == "float32"
     assert np.isnan(ar.fill_value)
+    assert ar.mask.sum() == 21151
     assert np.isnan(ar.data).sum() == 21151
-    with rasterio.open(mana_hk_nan_path, "r") as ds:
-        expected = ds.read(1, masked=True)
+    with rasterio.open(fname, "r") as ds:
+        if ds.nodata:
+            expected = ds.read(1, masked=True)
+        else:
+            expected = np.ma.masked_invalid(ds.read(1))
     np.testing.assert_equal(ar, expected)
 
 
@@ -245,9 +287,10 @@ def test_array_from_raster_refine(caplog):
     grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
     with caplog.at_level(logging.INFO):
         ar = grid.array_from_raster(mana_dem_path)
-        assert "bilinear resampling" in caplog.messages[2]
+        assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"
+    assert ar.fill_value == -32767.0
     assert ar.mask.sum() == 12802
     np.testing.assert_almost_equal(ar.min(), 1.268, 3)
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
@@ -255,27 +298,65 @@ def test_array_from_raster_refine(caplog):
     caplog.clear()
     with caplog.at_level(logging.INFO):
         ar = grid.array_from_raster(mana_dem_path, resampling="nearest")
-        assert "nearest resampling" in caplog.messages[2]
+        assert sum("nearest resampling" in msg for msg in caplog.messages) == 1
     np.testing.assert_almost_equal(ar.min(), 1.2556334, 3)
     np.testing.assert_almost_equal(ar.max(), 103.65819, 3)
     caplog.clear()
     with caplog.at_level(logging.INFO):
         ar = grid.array_from_raster(mana_dem_path, resampling=Resampling.bilinear)
-        assert "bilinear resampling" in caplog.messages[2]
+        assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
     np.testing.assert_almost_equal(ar.min(), 1.268, 3)
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
 
 
 @requires_pkg("rasterio")
-def test_array_from_raster_refine_nan():
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_array_from_raster_refine_nan(fname):
     # use bilinear resampling method
     grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
-    ar = grid.array_from_raster(mana_hk_nan_path)
+    ar = grid.array_from_raster(fname)
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"
-    assert ar.mask.sum() == 9728
     assert np.isnan(ar.fill_value)
+    assert ar.mask.sum() == 9728
     assert np.isnan(ar.data).sum() == 9728
+    np.testing.assert_almost_equal(ar.min(), 0.012, 3)
+    np.testing.assert_almost_equal(ar.max(), 12.3, 3)
+
+
+@requires_pkg("rasterio")
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_array_from_raster_expand_nan_resize(fname):
+    # avoid halo
+    grid = Grid(100, (25, 20), (1748500.0, 5451200.0))
+    ar = grid.array_from_raster(fname)
+    assert ar.shape == (25, 20)
+    assert ar.dtype == "float32"
+    assert np.isnan(ar.fill_value)
+    hash = md5(ar.tobytes()).hexdigest()[:7]
+    if hash == "d6832a8":
+        assert ar.mask.sum() == 224
+        assert np.isnan(ar.data).sum() == 224
+    elif hash == "cc2bb97":
+        assert ar.mask.sum() == 239
+        assert np.isnan(ar.data).sum() == 239
+    else:
+        raise AssertionError((hash, ar.mask.sum()))
+    np.testing.assert_almost_equal(ar.min(), 0.012, 3)
+    np.testing.assert_almost_equal(ar.max(), 12.3, 3)
+
+
+@requires_pkg("rasterio")
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_array_from_raster_expand_nan_same_grid(fname):
+    # avoid halo
+    grid = Grid(8, (316, 247), (1748536.0, 5451248.0))
+    ar = grid.array_from_raster(fname)
+    assert ar.shape == (316, 247)
+    assert ar.dtype == "float32"
+    assert np.isnan(ar.fill_value)
+    assert ar.mask.sum() == 41101
+    assert np.isnan(ar.data).sum() == 41101
     np.testing.assert_almost_equal(ar.min(), 0.012, 3)
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
 
@@ -678,3 +759,20 @@ def test_mask_from_raster(grid_from_raster):
     assert mask.shape == (278, 209)
     assert mask.dtype == "bool"
     assert mask.sum() == 23782
+
+
+@requires_pkg("rasterio")
+def test_mask_from_raster_zeros(grid_from_raster):
+    mask = grid_from_raster.mask_from_raster(mana_unset_nodata_zeros_path)
+    assert mask.shape == (278, 209)
+    assert mask.dtype == "bool"
+    assert mask.sum() == 0
+
+
+@requires_pkg("rasterio")
+@pytest.mark.parametrize("fname", [mana_hk_nan_path, mana_unset_nodata_nan_path])
+def test_mask_from_raster_nan(grid_from_raster, fname):
+    mask = grid_from_raster.mask_from_raster(fname)
+    assert mask.shape == (278, 209)
+    assert mask.dtype == "bool"
+    assert mask.sum() == 21151
