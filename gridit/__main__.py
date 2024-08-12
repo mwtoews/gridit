@@ -366,6 +366,7 @@ Examples:
         error(err, show_usage=False)
 
     logger.info("%s", grid)
+    logger.info("bounds: %s", grid.bounds)
     logger.info("has mask: %s", mask is not None)
 
     # Process array from * options

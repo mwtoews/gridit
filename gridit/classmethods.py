@@ -1,13 +1,57 @@
 """Grid from_* classmethods."""
 
+from decimal import Decimal
+from itertools import product
 from math import ceil, floor
-from typing import Optional
+from typing import Optional, Union
 
 from gridit.logger import get_logger
 
+_lr = ["left", "right"]
+_tb = ["top", "bottom"]
+snap_modes = ["full", "half"] + list("-".join(two) for two in product(_tb, _lr))
 
-def get_shape_top_left(bounds, resolution, buffer=0.0):
-    minx, miny, maxx, maxy = bounds
+
+def get_shape_top_left(
+    bounds: tuple,
+    resolution: Union[float, Decimal],
+    buffer: Union[float, Decimal] = Decimal("0.0"),
+    snap: Union[str, tuple] = "full",
+):
+    """Get shape and top-left coordinate to definea grid from bounds.
+
+    Parameters
+    ----------
+    bounds : tuple of float or Decimal
+        Bounding box, ordered (minx, miny, maxx, maxy).
+    resolution : float or Decimal
+        Grid resolution for x- and y-directions.
+    buffer : float or Decmial, default 0.0
+        Optional buffer distance to expand bounds.
+    snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
+        Snap mode used to evaluate grid size and offset. Default 'full' will
+        snap bounds to a multiple of resolution, and 'half' will snap to
+        half-resolution. Corner specifications, e.g. 'bottom-left' will
+        snap the grid to align with this coordinate. Alternatively,
+        a coordinate tuple (snapx, snapy) can be provided to snap the grid,
+        although the grid does not necessarily include the coordinate.
+
+    Returns
+    -------
+    shape: tuple of int
+        Dimensions of grid (ny, nx).
+    top_left: tuple of float
+        Snapped top-left corner of grid (minx, maxy).
+
+    """
+    if all(isinstance(x, Decimal) for x in bounds):
+        minx, miny, maxx, maxy = bounds
+    else:
+        minx, miny, maxx, maxy = map(lambda x: Decimal(str(x)), bounds)
+    if not isinstance(resolution, Decimal):
+        resolution = Decimal(str(resolution))
+    if not isinstance(buffer, Decimal):
+        buffer = Decimal(str(buffer))
     if not (minx <= maxx):
         raise ValueError("'minx' must be less than 'maxx'")
     elif not (miny <= maxy):
@@ -22,24 +66,55 @@ def get_shape_top_left(bounds, resolution, buffer=0.0):
         maxx += buffer
         maxy += buffer
     dx = dy = resolution
-    if buffer > 0.0:
-        minx = dx * round(minx / dx)
-        miny = dy * round(miny / dy)
-        maxx = dx * round(maxx / dx)
-        maxy = dy * round(maxy / dy)
+    if snap == "full":
+        snapx = snapy = Decimal("0.0")
+    elif snap == "half":
+        snapx = dx / Decimal("2.0")
+        snapy = dy / Decimal("2.0")
+    elif isinstance(snap, tuple):
+        if len(snap) != 2:
+            raise TypeError("'snap' tuple must have 2 items: (snapx, snapy)")
+        if all(isinstance(x, Decimal) for x in snap):
+            snapx, snapy = snap
+        else:
+            snapx, snapy = map(lambda x: Decimal(str(x)), snap)
+    elif snap in snap_modes:
+        if "top" in snap:
+            snapy = maxy
+        else:
+            assert "bottom" in snap, snap
+            leny = maxy - miny
+            ny = ceil(leny / dy) or 1
+            snapy = miny + ny * dy
+            if leny == 0.0:
+                miny += dy
+                maxy += dy
+        if "left" in snap:
+            snapx = minx
+        else:
+            assert "right" in snap, snap
+            lenx = maxx - minx
+            nx = ceil(lenx / dx) or 1
+            snapx = maxx - nx * dx
+            if lenx == 0.0:
+                minx -= dx
+                maxx -= dx
     else:
-        minx = dx * floor(minx / dx)
-        miny = dy * floor(miny / dy)
-        maxx = dx * ceil(maxx / dx)
-        maxy = dy * ceil(maxy / dy)
-    lenx = maxx - minx
-    leny = maxy - miny
-    assert lenx % dx == 0.0
-    assert leny % dy == 0.0
-    nx = int(lenx / dx)
-    ny = int(leny / dy)
+        raise ValueError(f"'snap' must be one of {snap_modes} or tuple (snapx, snapy)")
+    snapx %= dx
+    snapy %= dy
+    minx = dx * floor((minx - snapx) / dx) + snapx
+    maxx = dx * ceil((maxx - snapx) / dx) + snapx
+    miny = dy * floor((miny - snapy) / dy) + snapy
+    maxy = dy * ceil((maxy - snapy) / dy) + snapy
+    nx = int((maxx - minx) / dx) or 1
+    ny = int((maxy - miny) / dy) or 1
     shape = ny, nx
-    top_left = (minx, maxy)
+    top_left = (float(minx), float(maxy))
+    # print(
+    #     f"POLYGON (({minx} {maxy}, {minx} {miny}, "
+    #     f"{maxx} {miny}, {maxx} {maxy}, {minx} {maxy}))"
+    # )
     return shape, top_left
 
 
@@ -51,7 +126,9 @@ def from_bbox(
     maxx: float,
     maxy: float,
     resolution: float,
+    *,
     buffer: float = 0.0,
+    snap: Union[str, tuple] = "full",
     projection: Optional[str] = None,
     logger=None,
 ):
@@ -69,6 +146,13 @@ def from_bbox(
         A grid resolution, e.g. 250.0 for 250m x 250m
     buffer : float, default 0.0
         Add buffer to extents of bounding box.
+    snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
+        Snap mode used to evaluate grid size and offset. Default 'full' will
+        snap bounds to a multiple of resolution, and 'half' will snap to
+        half-resolution. Corner specifications, e.g. 'bottom-left' will
+        snap the grid to align with this coordinate. Alternatively,
+        a coordinate tuple (snapx, snapy) can be provided to snap the grid,
+        although the grid does not necessarily include the coordinate.
     projection : optional str, default None
         Coordinate reference system described as a string either as (e.g.)
         EPSG:2193 or a WKT string.
@@ -97,7 +181,7 @@ def from_bbox(
         logger = get_logger(cls.__name__)
     logger.info("creating from a bounding box")
     bounds = minx, miny, maxx, maxy
-    shape, top_left = get_shape_top_left(bounds, resolution, buffer)
+    shape, top_left = get_shape_top_left(bounds, resolution, buffer, snap)
     return cls(
         resolution=resolution,
         shape=shape,
@@ -109,7 +193,13 @@ def from_bbox(
 
 @classmethod
 def from_raster(
-    cls, fname: str, resolution: float = None, buffer: float = 0.0, logger=None
+    cls,
+    fname: str,
+    resolution: Optional[float] = None,
+    *,
+    buffer: float = 0.0,
+    snap: Union[str, tuple] = "full",
+    logger=None,
 ):
     """Fetch grid information from a raster.
 
@@ -123,6 +213,13 @@ def from_raster(
         expanded and "snapped" to a multiple of the resolution.
     buffer : float, default 0.0.
         Add buffer to extents of raster.
+    snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
+        Snap mode used to evaluate grid size and offset. Default 'full' will
+        snap bounds to a multiple of resolution, and 'half' will snap to
+        half-resolution. Corner specifications, e.g. 'bottom-left' will
+        snap the grid to align with this coordinate. Alternatively,
+        a coordinate tuple (snapx, snapy) can be provided to snap the grid,
+        although the grid does not necessarily include the coordinate.
     logger : logging.Logger, optional
         Logger to show messages.
 
@@ -154,7 +251,7 @@ def from_raster(
             resolution = t.a
         ny, nx = shape
         bounds = t.c, t.f + ny * t.e, t.c + nx * t.a, t.f
-        shape, top_left = get_shape_top_left(bounds, resolution, buffer)
+        shape, top_left = get_shape_top_left(bounds, resolution, buffer, snap)
     else:
         resolution = t.a
         top_left = t.c, t.f
@@ -172,8 +269,10 @@ def from_vector(
     cls,
     fname: str,
     resolution: float,
-    filter: dict = None,
+    *,
+    filter: Union[dict, str, None] = None,
     buffer: float = 0.0,
+    snap: Union[str, tuple] = "full",
     layer=None,
     logger=None,
 ):
@@ -194,6 +293,13 @@ def from_vector(
         used if Fiona 1.9 or later is installed.
     buffer : float, default 0.0
         Add buffer to extents of vector data.
+    snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
+        Snap mode used to evaluate grid size and offset. Default 'full' will
+        snap bounds to a multiple of resolution, and 'half' will snap to
+        half-resolution. Corner specifications, e.g. 'bottom-left' will
+        snap the grid to align with this coordinate. Alternatively,
+        a coordinate tuple (snapx, snapy) can be provided to snap the grid,
+        although the grid does not necessarily include the coordinate.
     layer : int or str, default None
         The integer index or name of a layer in a multi-layer dataset.
     logger : logging.Logger, optional
@@ -237,7 +343,7 @@ def from_vector(
             flt.close()
         else:  # full shapefile bounds
             bounds = ds.bounds
-    shape, top_left = get_shape_top_left(bounds, resolution, buffer)
+    shape, top_left = get_shape_top_left(bounds, resolution, buffer, snap)
     return cls(
         resolution=resolution,
         shape=shape,

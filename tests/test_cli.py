@@ -35,6 +35,24 @@ def test_grid_from_bbox(grid_from_bbox_args):
     assert returncode == 0
 
 
+def test_grid_from_bbox_more_args(grid_from_bbox_args):
+    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "half"])
+    assert len(stderr) == 0
+    assert len(stdout) > 0
+    assert returncode == 0
+
+    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "(1.1 -2.9)"])
+    assert len(stderr) == 0
+    assert len(stdout) > 0
+    assert returncode == 0
+
+    # bad arg
+    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "HALF"])
+    assert len(stderr) > 0
+    assert len(stdout) > 0
+    assert returncode != 0
+
+
 @requires_pkg("rasterio")
 def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
     out_path = tmp_path / "out.tif"
