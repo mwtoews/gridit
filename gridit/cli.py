@@ -2,6 +2,8 @@
 
 __all__ = []
 
+import re
+from decimal import Decimal
 from importlib.util import find_spec
 
 from gridit.grid import Grid
@@ -64,6 +66,18 @@ def add_grid_parser_arguments(parser):
         help="Add buffer to extents of grid, default 0.",
     )
     grid_group.add_argument(
+        "--snap",
+        metavar="SNAP",
+        type=str,
+        default="full",
+        help="Snap mode used to evaluate grid size and offset. Default 'full' will "
+        "snap bounds to a multiple of resolution, and 'half' will snap to "
+        "half-resolution. Corner specifications, e.g. 'bottom-left' will "
+        "snap the grid to align with this coordinate. Alternatively, "
+        "a coordinate tuple (snapx, snapy) can be provided to snap the grid, "
+        "although the grid does not necessarily include the coordinate.",
+    )
+    grid_group.add_argument(
         "--projection",
         metavar="STR",
         default="",
@@ -101,6 +115,13 @@ def process_grid_options(args, logger):
         grid_args["resolution"] = args.resolution
     if args.buffer:
         grid_args["buffer"] = args.buffer
+    if args.snap:
+        if snapxy := re.findall(r"([\-\+]?[\d\.]+)", args.snap):
+            if len(snapxy) != 2:
+                raise ValueError("snap tuple must have two floats")
+            grid_args["snap"] = tuple(map(Decimal, snapxy))
+        else:
+            grid_args["snap"] = args.snap
     if args.projection:
         grid_args["projection"] = args.projection
     from_grid_methods = ["bbox", "raster", "vector"]
