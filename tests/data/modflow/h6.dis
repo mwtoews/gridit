@@ -20,7 +20,7 @@ BEGIN GRIDDATA
   BOTM LAYERED
     OPEN/CLOSE h.botm1.ref
     OPEN/CLOSE h.botm2.ref
-    OPEN/CLOSE h.botm2.ref
+    OPEN/CLOSE h.botm3.ref
   IDOMAIN LAYERED
     OPEN/CLOSE h.ibound1.inf
     OPEN/CLOSE h.ibound2.inf

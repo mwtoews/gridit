@@ -6,7 +6,9 @@ repos:
     hooks:
     - id: check-yaml
     - id: end-of-file-fixer
+      exclude: \.dis\.grb$
     - id: trailing-whitespace
+      exclude: \.dis\.grb$
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.5.0
     hooks:
