@@ -74,13 +74,14 @@ def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
         assert ar.dtype == np.float32
         assert ar.shape == (1, 20, 30)
         np.testing.assert_array_almost_equal(ar[0], ar_float32)
+        assert ds.compression is None
 
     ar_float64 = np.arange(20 * 30, dtype=np.float64).reshape((20, 30))
     if masked:
         ar_float64 = np.ma.array(ar_float64)
         ar_float64.fill_value = -1.0
     fname = tmp_path / "float64.tif"
-    grid_basic.write_raster(ar_float64, fname)
+    grid_basic.write_raster(ar_float64, fname, COMPRESS="DEFLATE")
     with rasterio.open(fname) as ds:
         assert not ds.crs
         if masked:
@@ -91,6 +92,7 @@ def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
         assert ar.dtype == np.float64
         assert ar.shape == (1, 20, 30)
         np.testing.assert_array_almost_equal(ar[0], ar_float64)
+        assert ds.compression == rasterio.enums.Compression.deflate
 
     ar_uint16 = np.arange(20 * 30, dtype=np.uint16).reshape((20, 30)) + 1
     if masked:
@@ -257,6 +259,10 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
             "nums1": 2995,
             "nums2": 5995,
         }
+
+    csv_fname = tmp_path / "default.csv"
+    grid_basic.write_vector(ar_int[0], csv_fname, "nums1", GEOMETRY="AS_WKT")
+    assert csv_fname.read_text().splitlines()[0] == "WKT,idx,row,col,nums1"
 
     # errors
     ar2d = np.ones(20 * 30).reshape((20, 30))
