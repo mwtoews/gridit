@@ -63,6 +63,7 @@ def test_grid_from_bbox_array_from_raster(tmp_path, grid_from_bbox_args):
             "--array-from-raster", str(mana_tif) + ":1",
             "--array-from-raster-resampling", "nearest",
             "--write-raster", str(out_path),
+            "--write-creation-option", "COMPRESS=deflate",
         ]
     )
     # fmt: on
@@ -119,6 +120,26 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
     if expected_properties != resulting_properties:
         expected_properties["kmd"] = "float:18.16"
     assert expected_properties == resulting_properties
+
+
+@requires_pkg("fiona")
+def test_write_csv(tmp_path, grid_from_bbox_args):
+    out_csv = tmp_path / "out.csv"
+    # fmt: off
+    stdout, stderr, returncode = run_cli(
+        grid_from_bbox_args
+        + [
+            "--array-from-vector", mana_shp,
+            "--array-from-vector-attribute", "K_m_d",
+            "--write-vector", str(out_csv),
+            "--write-creation-option", "GEOMETRY=AS_WKT",
+        ]
+    )
+    # fmt: on
+    assert len(stderr) == 0
+    assert len(stdout) > 0
+    assert returncode == 0
+    assert out_csv.read_text().splitlines()[0] == "WKT,idx,row,col,value"
 
 
 @requires_pkg("fiona", "netcdf4", "xarray")

@@ -59,10 +59,11 @@ Examples:
       --write-image {tmpdir / "Mana_Kmd.png"} {cl}
       --write-vector /tmp/Mana_Kmd.shp
 
-  Grid from bounding box, array from raster, write GeoTIFF raster:
+  Grid from bounding box, array from raster, write GeoTIFF raster with compression:
   $ gridit --grid-from-bbox 1748600 5448800 1750400 5451200 --resolution 100 {cl}
       --array-from-raster {Path("tests/data/Mana.tif")} {cl}
-      --write-raster {tmpdir / "Mana_100m.tif"}
+      --write-raster {tmpdir / "Mana_100m.tif"} {cl}
+      --write-creation-option COMPRESS=deflate
 """  # noqa
     waitaku2 = Path("tests/data/waitaku2")
     if has_netcdf4:
@@ -254,6 +255,14 @@ Examples:
         help="Name of attribute to use writing vector file. "
         "The default name is 'value'.",
     )
+    write_output_group.add_argument(
+        "--write-creation-option",
+        metavar="OPT",
+        nargs="*",
+        help="For write-raster: GDAL Driver-specific creation option, e.g. "
+        "'COMPRESS=deflate' for a GTiff file. For write-vector: OGR Driver-"
+        "specific creation option, e.g. 'GEOMETRY=AS_WKT' for a CSV file.",
+    )
 
     # General options
     parser.add_argument(
@@ -281,6 +290,14 @@ Examples:
         logger.error(m + str(msg))
         if exit is not None:
             sys.exit(exit)
+
+    # Change creation options to dict
+    write_kwargs = {}
+    for opt in args.write_creation_option or []:
+        if opt.count("=") != 1:
+            raise ValueError(f"creation option must be 'key=value'; found {opt}")
+        key, value = opt.split("=")
+        write_kwargs[key] = value
 
     def write_output(ar, part=None):
         # handles only one part at a time
@@ -313,7 +330,7 @@ Examples:
             if part:
                 fname = fname.parent / f"{fname.stem}_{part}{fname.suffix}"
             try:
-                grid.write_raster(ar, fname)
+                grid.write_raster(ar, fname, **write_kwargs)
             except (RasterioCPLE_BaseError, RasterioError) as err:
                 error(f"cannot write raster: {err}", exit=1)
         if args.write_text is not None:
@@ -352,7 +369,9 @@ Examples:
                 attr = "value"
             logger.info("writing vector (%s): %s", attr, fname)
             try:
-                grid.write_vector(ar, fname, layer=layer, attribute=attr)
+                grid.write_vector(
+                    ar, fname, layer=layer, attribute=attr, **write_kwargs
+                )
             except (FionaCPLE_BaseError, FionaError) as err:
                 error(f"cannot write vector: {err}", exit=1)
 

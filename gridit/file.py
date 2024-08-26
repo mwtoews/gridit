@@ -25,7 +25,7 @@ def float32_is_also_float64(val):
     return val64 == val6432
 
 
-def write_raster(grid, array, fname, driver=None):
+def write_raster(grid, array, fname, driver=None, **kwargs):
     """Write array to a raster file format.
 
     Parameters
@@ -37,6 +37,9 @@ def write_raster(grid, array, fname, driver=None):
         Output file to write.
     driver : str, optional
         Raster driver. Default None will determine driver from fname.
+    **kwargs : dict, optional
+        Other driver-specific parameters that will be interpreted by the
+        GDAL library as raster creation options.
 
     Raises
     ------
@@ -57,22 +60,31 @@ def write_raster(grid, array, fname, driver=None):
         from rasterio.drivers import driver_from_extension
 
         driver = driver_from_extension(fname)
-    kwds = {
-        "driver": driver,
-        "width": grid.shape[1],
-        "height": grid.shape[0],
-        "count": 1,
-        "crs": grid.projection,
-        "transform": grid.transform,
-    }
+    # GDAL treats these as case-insensitive
+    driver_lname = driver.lower()
+    if kwargs:
+        kwargs_lnames = [key.lower() for key in kwargs]
+    else:
+        kwargs = {}
+        kwargs_lnames = []
+    kwargs.update(
+        {
+            "driver": driver,
+            "width": grid.shape[1],
+            "height": grid.shape[0],
+            "count": 1,
+            "crs": grid.projection,
+            "transform": grid.transform,
+        }
+    )
     if np.issubdtype(array.dtype, np.bool_):
         grid.logger.debug("changing dtype from %s to uint8", array.dtype)
         array = array.astype(np.uint8, copy=True)
-        if driver.lower() == "gtiff":
+        if driver_lname == "gtiff" and "nbits" not in kwargs_lnames:
             # write a smaller file
-            kwds["NBITS"] = "2"
-    kwds["dtype"] = array.dtype
-    if np.ma.isMA(array):
+            kwargs["NBITS"] = "2"
+    kwargs["dtype"] = array.dtype
+    if np.ma.isMA(array) and "nodata" not in kwargs.keys():
         if array.mask.all():
             nodata = 0
         elif np.issubdtype(array.dtype, np.integer):
@@ -85,9 +97,9 @@ def write_raster(grid, array, fname, driver=None):
                 assert nodata not in array
                 array = array.copy()
                 array.nodata = nodata
-        kwds["nodata"] = nodata = array.dtype.type(nodata)
+        kwargs["nodata"] = nodata = array.dtype.type(nodata)
         array = array.filled(nodata)
-    with rasterio.open(fname, "w", **kwds) as ds:
+    with rasterio.open(fname, "w", **kwargs) as ds:
         ds.write(array, 1)
 
 
@@ -140,9 +152,9 @@ def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwarg
     driver : str or None (default)
         Vector driver. Default None will try to determine driver from
         fname.
-    kwargs : dict, optional
+    **kwargs : dict, optional
         Other driver-specific parameters that will be interpreted by the
-        OGR library as layer creation or opening options.
+        OGR library as layer creation options.
 
     Raises
     ------
@@ -228,12 +240,17 @@ def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwarg
     for attr_name, attr_val in zip(attribute, vals):
         schema["properties"][attr_name] = fiona_property_type(attr_val)
     grid.logger.debug("schema: %s", schema)
-    kwargs = {
-        "driver": driver,
-        "schema": schema,
-        "crs": grid.projection,
-        "layer": layer,
-    }
+    if not kwargs:
+        kwargs = {}
+    kwargs.update(
+        {
+            "driver": driver,
+            "schema": schema,
+            "crs": grid.projection,
+        }
+    )
+    if layer:
+        kwargs["layer"] = layer
     with fiona.open(fname, "w", **kwargs) as ds:
         ds.writerecords(recs)
     grid.logger.info("wrote %d features", idxs.size)
