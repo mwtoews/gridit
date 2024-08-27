@@ -15,10 +15,10 @@ snap_modes = ["full", "half"] + list("-".join(two) for two in product(_tb, _lr))
 def get_shape_top_left(
     bounds: tuple,
     resolution: Union[float, Decimal],
-    buffer: Union[float, Decimal] = Decimal("0.0"),
+    buffer: Union[float, Decimal] = Decimal("0"),
     snap: Union[str, tuple] = "full",
 ):
-    """Get shape and top-left coordinate to definea grid from bounds.
+    """Get shape and top-left coordinate to define a grid from bounds.
 
     Parameters
     ----------
@@ -26,7 +26,7 @@ def get_shape_top_left(
         Bounding box, ordered (minx, miny, maxx, maxy).
     resolution : float or Decimal
         Grid resolution for x- and y-directions.
-    buffer : float or Decmial, default 0.0
+    buffer : float or Decimal, default Decimal('0')
         Optional buffer distance to expand bounds.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
@@ -44,10 +44,9 @@ def get_shape_top_left(
         Snapped top-left corner of grid (minx, maxy).
 
     """
-    if all(isinstance(x, Decimal) for x in bounds):
-        minx, miny, maxx, maxy = bounds
-    else:
-        minx, miny, maxx, maxy = map(lambda x: Decimal(str(x)), bounds)
+    minx, miny, maxx, maxy = (
+        x if isinstance(x, Decimal) else Decimal(str(x)) for x in bounds
+    )
     if not isinstance(resolution, Decimal):
         resolution = Decimal(str(resolution))
     if not isinstance(buffer, Decimal):
@@ -67,10 +66,10 @@ def get_shape_top_left(
         maxy += buffer
     dx = dy = resolution
     if snap == "full":
-        snapx = snapy = Decimal("0.0")
+        snapx = snapy = Decimal("0")
     elif snap == "half":
-        snapx = dx / Decimal("2.0")
-        snapy = dy / Decimal("2.0")
+        snapx = dx / Decimal("2")
+        snapy = dy / Decimal("2")
     elif isinstance(snap, tuple):
         if len(snap) != 2:
             raise TypeError("'snap' tuple must have 2 items: (snapx, snapy)")
@@ -121,13 +120,13 @@ def get_shape_top_left(
 @classmethod
 def from_bbox(
     cls,
-    minx: float,
-    miny: float,
-    maxx: float,
-    maxy: float,
-    resolution: float,
+    minx: Union[float, Decimal],
+    miny: Union[float, Decimal],
+    maxx: Union[float, Decimal],
+    maxy: Union[float, Decimal],
+    resolution: Union[float, Decimal],
     *,
-    buffer: float = 0.0,
+    buffer: Union[float, Decimal] = Decimal("0"),
     snap: Union[str, tuple] = "full",
     projection: Optional[str] = None,
     logger=None,
@@ -140,11 +139,11 @@ def from_bbox(
     ----------
     fname : str
         Input file, such as a shapefile.
-    minx, miny, maxx, maxy : float
+    minx, miny, maxx, maxy : float or Decimal
         Extents of a bounding box.
-    resolution : float
+    resolution : float or Decimal
         A grid resolution, e.g. 250.0 for 250m x 250m
-    buffer : float, default 0.0
+    buffer : float or Decimal, default Decimal('0')
         Add buffer to extents of bounding box.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
@@ -195,9 +194,9 @@ def from_bbox(
 def from_raster(
     cls,
     fname: str,
-    resolution: Optional[float] = None,
+    resolution: Union[float, Decimal, None] = None,
     *,
-    buffer: float = 0.0,
+    buffer: Union[float, Decimal] = Decimal("0"),
     snap: Union[str, tuple] = "full",
     logger=None,
 ):
@@ -207,11 +206,11 @@ def from_raster(
     ----------
     fname : str
         Input file, such as a shapefile.
-    resolution : float, optional
-        An optional grid resolution. If not specified, the default
-        resolution is from the raster. If specified, the bounds may be
-        expanded and "snapped" to a multiple of the resolution.
-    buffer : float, default 0.0.
+    resolution : float or Decimal, optional
+        An optional grid resolution. If not specified, the grid will have the
+        same resolution, bounds and shape as the raster. If specified, the
+        bounds may change relative to 'snap' option, which has default 'full'.
+    buffer : float or Decimal, default Decimal('0')
         Add buffer to extents of raster.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
@@ -220,6 +219,9 @@ def from_raster(
         snap the grid to align with this coordinate. Alternatively,
         a coordinate tuple (snapx, snapy) can be provided to snap the grid,
         although the grid does not necessarily include the coordinate.
+        The snap option is ignored by default if resolution is specified,
+        or buffer is non-zero.
+
     logger : logging.Logger, optional
         Logger to show messages.
 
@@ -246,11 +248,13 @@ def from_raster(
         logger.error("expected e == -a, but %r != %r", t.e, t.a)
     if t.b != 0 or t.d != 0:
         logger.error("expected b == d == 0.0, but %r and %r", t.b, t.d)
-    if resolution is not None or resolution != t.a or buffer > 0:
-        if resolution is None:
-            resolution = t.a
+    if resolution is not None or buffer != 0:
         ny, nx = shape
-        bounds = t.c, t.f + ny * t.e, t.c + nx * t.a, t.f
+        a, _, c, _, e, f = map(lambda x: Decimal(str(x)), list(t)[:6])
+        bounds = c, f + ny * e, c + nx * a, f
+        if resolution is None:
+            resolution = a
+        # Shape can change here
         shape, top_left = get_shape_top_left(bounds, resolution, buffer, snap)
     else:
         resolution = t.a
@@ -268,10 +272,10 @@ def from_raster(
 def from_vector(
     cls,
     fname: str,
-    resolution: float,
+    resolution: Union[float, Decimal],
     *,
     filter: Union[dict, str, None] = None,
-    buffer: float = 0.0,
+    buffer: Union[float, Decimal] = Decimal("0"),
     snap: Union[str, tuple] = "full",
     layer=None,
     logger=None,
@@ -284,14 +288,14 @@ def from_vector(
     ----------
     fname : str
         Input file, such as a shapefile.
-    resolution : float
+    resolution : float or Decimal
         A grid resolution, e.g. 250.0 for 250m x 250m
     filter : dict, str, optional
         Property filter criteria. For example ``{"id": 4}`` to select one
         feature with attribute "id" value 4. Or ``{"id": [4, 7, 19]}`` to
         select features with several values. A SQL WHERE statement can also be
         used if Fiona 1.9 or later is installed.
-    buffer : float, default 0.0
+    buffer : float or Decimal, default Decimal('0')
         Add buffer to extents of vector data.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will

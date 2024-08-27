@@ -72,7 +72,7 @@ class ModelGrid:
         Parameters
         ----------
         file_or_dir : str or PathLike
-            Path to a MODFLOW 6 directorty, mfsim.nam, binary grid file
+            Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
             (with .dis.grb suffix), or classic MODFLOW NAM file.
         model_name : str, optional
             Model name; ignored with binary grid or classic MODFLOW NAM files.
@@ -138,7 +138,7 @@ def get_modflow_model(
     Parameters
     ----------
     file_or_dir : str or PathLike
-        Path to a MODFLOW 6 directorty, mfsim.nam, binary grid file
+        Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
         (with .dis.grb suffix), or classic MODFLOW NAM file.
     model_name : str, optional
         Model name; ignored with binary grid or classic MODFLOW NAM files.
@@ -245,7 +245,7 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
     Parameters
     ----------
     model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.StructuredGrid
-        Path to a MODFLOW 6 directorty, mfsim.nam, binary grid file
+        Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
         (with .dis.grb suffix), classic MODFLOW NAM file,
         or certain FloPy objects.
     model_name : str, optional
@@ -302,7 +302,7 @@ def mask_from_modflow(self, model, model_name=None):
     Parameters
     ----------
     model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.StructuredGrid
-        Path to a MODFLOW 6 directorty, mfsim.nam, binary grid file
+        Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
         (with .dis.grb suffix), classic MODFLOW NAM file,
         or certain FloPy objects.
     model_name : str or None (default)

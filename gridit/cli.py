@@ -5,6 +5,7 @@ __all__ = []
 import re
 from decimal import Decimal
 from importlib.util import find_spec
+from textwrap import dedent
 
 from gridit.grid import Grid
 
@@ -25,16 +26,20 @@ def add_grid_parser_arguments(parser):
     grid_group.add_argument(
         "--grid-from-bbox",
         metavar=("XMIN", "YMIN", "XMAX", "YMAX"),
-        type=float,
+        type=Decimal,
         nargs=4,
         help="Define grid from bounding box values, requires --resolution",
     )
     grid_group.add_argument(
         "--grid-from-vector",
         metavar="FILE",
-        help="Define grid from a vector file, e.g. catchment polygons, "
-        "and may require ':layer' to be specified for multi-layer sources; "
-        "requires --resolution",
+        help=dedent(
+            """\
+        Define grid from a vector file, e.g. catchment polygons,
+        and may require ':layer' to be specified for multi-layer sources;
+        requires --resolution.
+        """
+        ),
     )
     grid_group.add_argument(
         "--grid-from-raster",
@@ -45,42 +50,50 @@ def add_grid_parser_arguments(parser):
         grid_group.add_argument(
             "--grid-from-modflow",
             metavar="PATH[:MODEL]",
-            help="Use a MODFLOW grid, which must have constant row and column "
-            "spacing. For 'classic' MODFLOW, this is a path to a NAM file. "
-            "For MODFLOW 6, this is a path to a mfsim.nam file or directory, "
-            "and model name specified after ':', "
-            "e.g. 'mfsim.nam:name_of_model'. If a model name is not "
-            "specified, the first will be selected with a warning.",
+            help=dedent(
+                """\
+            Use a MODFLOW grid, which must have constant row and column
+            spacing. For 'classic' MODFLOW, this is a path to a NAM file.
+            For MODFLOW 6, this is a path to a mfsim.nam file or directory,
+            and model name specified after ':',
+            e.g. 'mfsim.nam:name_of_model'. If a model name is not
+            specified, the first will be selected with a warning.
+            Alternatively, a binary grid (with .dis.grb) can be used.
+            """
+            ),
         )
     grid_group.add_argument(
         "--resolution",
         metavar="RES",
-        type=float,
+        type=Decimal,
         help="Grid resolution along X and Y directions, e.g. 100 m",
     )
     grid_group.add_argument(
         "--buffer",
         metavar="BUF",
-        type=float,
-        default=0.0,
+        type=Decimal,
+        default=Decimal("0"),
         help="Add buffer to extents of grid, default 0.",
     )
     grid_group.add_argument(
         "--snap",
         metavar="SNAP",
-        type=str,
-        default="full",
-        help="Snap mode used to evaluate grid size and offset. Default 'full' will "
-        "snap bounds to a multiple of resolution, and 'half' will snap to "
-        "half-resolution. Corner specifications, e.g. 'bottom-left' will "
-        "snap the grid to align with this coordinate. Alternatively, "
-        "a coordinate tuple (snapx, snapy) can be provided to snap the grid, "
-        "although the grid does not necessarily include the coordinate.",
+        help=dedent(
+            """\
+        Snap mode used to evaluate grid size and offset. Default 'full' will
+        snap bounds to a multiple of resolution, and 'half' will snap to
+        half-resolution. Corner specifications, e.g. 'bottom-left' will
+        snap the grid to align with this coordinate. Alternatively,
+        a coordinate tuple (snapx, snapy) can be provided to snap the grid,
+        although the grid does not necessarily include the coordinate.
+        The snap option is ignored by --grid-from-raster by default if
+        --resolution is specified, or --buffer is non-zero.
+        """
+        ),
     )
     grid_group.add_argument(
         "--projection",
         metavar="STR",
-        default="",
         help="Projection or coordinate reference system for --grid-from-bbox. "
         "Use (e.g.) EPSG:2193 for New Zealand Transverse Mercator 2000.",
     )
@@ -118,7 +131,7 @@ def process_grid_options(args, logger):
     if args.snap:
         if snapxy := re.findall(r"([\-\+]?[\d\.]+)", args.snap):
             if len(snapxy) != 2:
-                raise ValueError("snap tuple must have two floats")
+                raise ValueError("snap tuple must have two values")
             grid_args["snap"] = tuple(map(Decimal, snapxy))
         else:
             grid_args["snap"] = args.snap
