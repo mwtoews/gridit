@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from gridit import Grid
@@ -47,11 +49,14 @@ from .conftest import datadir, requires_pkg
 def test_get_shape_top_left_point(resolution, snap, top_left):
     x, y = 42.0, 73.0  # point
     buffer = 0.0
+    resolution = Decimal(str(resolution))
     shape, (minx, maxy) = get_shape_top_left((x, y, x, y), resolution, buffer, snap)
-    maxx = minx + resolution
-    miny = maxy - resolution
     assert top_left == (minx, maxy)
     assert shape == (1, 1)
+    minx = Decimal(str(minx))
+    maxy = Decimal(str(maxy))
+    maxx = minx + resolution
+    miny = maxy - resolution
     # check if point is within bounds
     assert minx <= x <= maxx
     assert miny <= y <= maxy
@@ -67,9 +72,10 @@ def test_get_shape_top_left_point(resolution, snap, top_left):
             assert maxx == x
     else:
         # tuple snaps to top left
-        snapx, snapy = snap
-        assert (snapx % resolution) == pytest.approx(minx % resolution)
-        assert (snapy % resolution) == pytest.approx(maxy % resolution)
+        snapx = Decimal(str(snap[0]))
+        snapy = Decimal(str(snap[1]))
+        assert (snapx % resolution) == minx % resolution
+        assert (snapy % resolution) == maxy % resolution
 
 
 @pytest.mark.parametrize(
@@ -107,11 +113,15 @@ def test_get_shape_top_left_point(resolution, snap, top_left):
     ],
 )
 def test_get_shape_top_left_buffer(resolution, buffer, snap, top_left, shape):
-    x, y = 42.0, 73.0  # point
+    x, y = Decimal("42.0"), Decimal("73.0")  # point
+    resolution = Decimal(str(resolution))
+    buffer = Decimal(str(buffer))
     (ny, nx), (minx, maxy) = get_shape_top_left((x, y, x, y), resolution, buffer, snap)
     assert top_left == (minx, maxy)
     assert shape == (ny, nx)
     # check if point is within bounds
+    minx = Decimal(str(minx))
+    maxy = Decimal(str(maxy))
     maxx = minx + resolution * nx
     miny = maxy - resolution * ny
     assert minx <= x <= maxx
@@ -119,21 +129,23 @@ def test_get_shape_top_left_buffer(resolution, buffer, snap, top_left, shape):
     # check snapped edges touch
     if isinstance(snap, str):
         if "top" in snap:
-            assert maxy == pytest.approx(y + buffer)
+            assert maxy == y + buffer
         if "bottom" in snap:
-            assert miny == pytest.approx(y - buffer)
+            assert miny == y - buffer
         if "left" in snap:
-            assert minx == pytest.approx(x - buffer)
+            assert minx == x - buffer
         if "right" in snap:
-            assert maxx == pytest.approx(x + buffer)
+            assert maxx == x + buffer
     else:
         # tuple snaps to top left
-        snapx, snapy = snap
-        assert (snapx % resolution) == pytest.approx(minx % resolution)
-        assert (snapy % resolution) == pytest.approx(maxy % resolution)
+        snapx = Decimal(str(snap[0]))
+        snapy = Decimal(str(snap[1]))
+        assert (snapx % resolution) == minx.copy_sign(snapx) % resolution
+        assert (snapy % resolution) == maxy.copy_sign(snapy) % resolution
 
 
 mana_dem_path = datadir / "Mana.tif"
+grib_path = datadir / "2m_temperature.grb.tif"
 mana_polygons_path = datadir / "Mana_polygons.shp"
 lines_path = datadir / "waitaku2_lines.shp"
 points_path = datadir / "waitaku2_points.shp"
@@ -163,23 +175,43 @@ def test_grid_from_bbox_buffer():
     assert grid == expected
 
 
-@pytest.fixture
-def grid_from_raster():
-    return Grid.from_raster(mana_dem_path)
-
-
 @requires_pkg("rasterio")
-def test_grid_from_raster(grid_from_raster):
-    grid = grid_from_raster
+def test_grid_from_raster():
+    grid = Grid.from_raster(mana_dem_path)
     expected = Grid(8.0, (278, 209), (1748688.0, 5451096.0), grid.projection)
     assert grid == expected
+    assert grid.bounds == (1748688.0, 5448872.0, 1750360.0, 5451096.0)
+
+    grid = Grid.from_raster(grib_path)
+    expected = Grid(0.1, (171, 161), (163.95, -31.95), grid.projection)
+    assert grid == expected
+    assert grid.bounds == (163.95, -49.05, 180.05, -31.95)
 
 
 @requires_pkg("rasterio")
 def test_grid_from_raster_resolution():
+    # same resolution
+    grid = Grid.from_raster(mana_dem_path, 8.0)
+    expected = Grid(8.0, (278, 209), (1748688.0, 5451096.0), grid.projection)
+    assert grid == expected
+    assert grid.bounds == (1748688.0, 5448872.0, 1750360.0, 5451096.0)
+
     grid = Grid.from_raster(mana_dem_path, 10.0)
     expected = Grid(10.0, (223, 168), (1748680.0, 5451100.0), grid.projection)
     assert grid == expected
+    assert grid.bounds == (1748680.0, 5448870.0, 1750360.0, 5451100.0)
+
+    # same resolution, results with different grid than resolution=None
+    grid = Grid.from_raster(grib_path, 0.1)
+    expected = Grid(0.1, (172, 162), (163.9, -31.9), grid.projection)
+    assert grid == expected
+    assert grid.bounds == (163.9, -49.1, 180.1, -31.9)
+
+    # same resolution, get same grid with snap option
+    grid = Grid.from_raster(grib_path, 0.1, snap="half")
+    expected = Grid(0.1, (171, 161), (163.95, -31.95), grid.projection)
+    assert grid == expected
+    assert grid.bounds == (163.95, -49.05, 180.05, -31.95)
 
 
 @requires_pkg("rasterio")

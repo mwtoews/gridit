@@ -1,5 +1,6 @@
 """Grid class and spatial tools to read array datasets."""
 
+from decimal import Decimal
 from typing import Optional
 
 __all__ = ["Grid"]
@@ -92,11 +93,12 @@ class Grid:
     @property
     def bounds(self):
         """Return bounds tuple of (xmin, ymin, xmax, ymax)."""
-        xmin, ymax = self.top_left
         nrow, ncol = self.shape
-        xmax = xmin + ncol * self.resolution
-        ymin = ymax - nrow * self.resolution
-        return xmin, ymin, xmax, ymax
+        xmin, ymax = map(lambda x: Decimal(str(x)), self.top_left)
+        res = Decimal(str(self.resolution))
+        xmax = xmin + ncol * res
+        ymin = ymax - nrow * res
+        return tuple(map(float, (xmin, ymin, xmax, ymax)))
 
     @property
     def transform(self):
