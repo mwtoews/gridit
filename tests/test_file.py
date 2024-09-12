@@ -163,7 +163,11 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         assert not ds.crs
         schema = ds.schema
         assert schema["geometry"] == "Polygon"
-        assert dict(ds.schema["properties"]) == {
+        schema_properties = {
+            k: v.replace("int32", "int")
+            for k, v in dict(ds.schema["properties"]).items()
+        }
+        assert schema_properties == {
             "idx": "int:3",
             "row": "int:2",
             "col": "int:2",
@@ -203,7 +207,11 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         assert ds.crs is not None
         schema = ds.schema
         assert schema["geometry"] == "Polygon"
-        assert dict(ds.schema["properties"]) == {
+        schema_properties = {
+            k: v.replace("int32", "int")
+            for k, v in dict(ds.schema["properties"]).items()
+        }
+        assert schema_properties == {
             "idx": "int:3",
             "row": "int:2",
             "col": "int:2",
@@ -243,7 +251,11 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         assert ds.crs is not None
         schema = ds.schema
         assert schema["geometry"] == "Polygon"
-        assert dict(ds.schema["properties"]) == {
+        schema_properties = {
+            k: v.replace("int32", "int")
+            for k, v in dict(ds.schema["properties"]).items()
+        }
+        assert schema_properties == {
             "idx": "int",
             "row": "int",
             "col": "int",
