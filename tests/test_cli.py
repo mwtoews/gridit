@@ -110,7 +110,10 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
     )
     assert not (tmp_path / "out.prj").exists()
     with fiona.open(out_shp) as ds:
-        resulting_properties = dict(ds.schema["properties"])
+        resulting_properties = {
+            k: v.replace("int32", "int")
+            for k, v in dict(ds.schema["properties"]).items()
+        }
     expected_properties = {
         "idx": "int:4",
         "row": "int:2",
@@ -179,14 +182,18 @@ def test_grid_from_vector_array_from_netcdf(tmp_path):
         }
     )
     with fiona.open(out_shp) as ds:
-        assert dict(ds.schema["properties"]) == {
-            "idx": "int:4",
-            "row": "int:2",
-            "col": "int:2",
-            "quantile(0": "float:22.20",
-            "max": "float:22.20",
-        }
         assert len(ds) == 4620
+        resulting_properties = {
+            k: v.replace("int32", "int")
+            for k, v in dict(ds.schema["properties"]).items()
+        }
+    assert resulting_properties == {
+        "idx": "int:4",
+        "row": "int:2",
+        "col": "int:2",
+        "quantile(0": "float:22.20",
+        "max": "float:22.20",
+    }
 
 
 @requires_pkg("flopy")
