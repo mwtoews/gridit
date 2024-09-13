@@ -51,7 +51,7 @@ jobs:
         run: |
           pip install -e .[optional]
           # Avoid: Matplotlib is building the font cache; this may take a moment
-          python -c "import matplotlib; matplotlib.get_cachedir()"
+          python -c "from matplotlib.font_manager import FontManager; FontManager()"
           pytest -n2 -v --cov
 
       - name: Run doctest
