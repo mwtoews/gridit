@@ -70,7 +70,9 @@ def flat_grid_intersect(this, other, method="vector"):
         import shapely
         from shapely.strtree import STRtree
 
-        logger.debug("using shapely-%s to peform vector intersect", shapely.__version__)
+        logger.debug(
+            "using shapely-%s to perform vector intersect", shapely.__version__
+        )
         if this_crs != other_crs:
             logger.warning("ignoring different CRS from grids")
         this_geoms = this.cell_geoms()
@@ -114,7 +116,7 @@ def flat_grid_intersect(this, other, method="vector"):
         from rasterio.warp import reproject
 
         logger.debug(
-            "using rasterio-%s to peform raster intersect", rasterio.__version__
+            "using rasterio-%s to perform raster intersect", rasterio.__version__
         )
 
         if this.resolution <= other.resolution:

@@ -8,7 +8,7 @@ from gridit.logger import get_logger, logging
 
 
 def shorten(text, width):
-    """Simlar to textwrap.shorten, but works with WKT."""
+    """Similar to textwrap.shorten, but works with WKT."""
     text = text.strip()
     if len(text) < width:
         return text

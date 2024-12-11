@@ -145,7 +145,7 @@ def test_array_from_raster_all(write_files):
     assert ar.shape == (24, 18)
     assert ar.dtype == "float32"
     assert ar.fill_value == -32767.0
-    # there are a few different possiblities, depending on GDAL version
+    # there are a few different possibilities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
         fname = f"test_array_from_raster_all_{gdal_version()}_{hash}.tif"
@@ -187,7 +187,7 @@ def test_array_from_raster_filter(write_files):
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     assert ar.fill_value == -32767.0
-    # there are a few different possiblities, depending on GDAL version
+    # there are a few different possibilities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
         fname = f"test_array_from_raster_filter_{gdal_version()}_{hash}.tif"
@@ -212,7 +212,7 @@ def test_array_from_raster_filter_nan(write_files, fname):
     assert ar.shape == (14, 13)
     assert ar.dtype == "float32"
     assert np.isnan(ar.fill_value)
-    # there are a few different possiblities, depending on GDAL version
+    # there are a few different possibilities, depending on GDAL version
     hash = md5(ar.tobytes()).hexdigest()[:7]
     if write_files:
         outfname = (

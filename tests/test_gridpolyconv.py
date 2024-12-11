@@ -348,9 +348,9 @@ def test_array_from_netcdf_errors(caplog, waitaku2_gpc_rid_2):
         assert isinstance(res, dict)
         assert len(caplog.messages) == 1
         assert "dataset has extra dimension 'run'" in caplog.messages[-1]
-    with pytest.raises(AttributeError, match="cannot find 'novar' in variabl"):
+    with pytest.raises(AttributeError, match="cannot find 'novar' in variable"):
         gpc.array_from_netcdf(waitaku2_nc, "rid", "novar")
-    with pytest.raises(AttributeError, match="cannot find 'noidx' in variabl"):
+    with pytest.raises(AttributeError, match="cannot find 'noidx' in variable"):
         gpc.array_from_netcdf(waitaku2_nc, "noidx", "myvar")
     with pytest.raises(ValueError, match="expected 1-d myvar index dimension"):
         gpc.array_from_netcdf(waitaku2_nc, "myvar", "myvar")
@@ -369,7 +369,7 @@ def test_array_from_netcdf_errors(caplog, waitaku2_gpc_rid_2):
         gpc.array_from_netcdf(*args, time_stats="quantile(N)")
     with pytest.raises(ValueError, match="unhandled time stats 'quantile'"):
         gpc.array_from_netcdf(*args, time_stats="quantile")
-    with pytest.raises(ValueError, match="time stats window 'Nov' not suppor"):
+    with pytest.raises(ValueError, match="time stats window 'Nov' not support"):
         gpc.array_from_netcdf(*args, time_stats="Nov:mean")
 
 

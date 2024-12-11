@@ -306,7 +306,7 @@ def array_from_vector(
         If one, use default (coarse) rasterizing at grid resolution.
         If greater than 1, refine each dimension by a factor.
         Default will determine an appropriate refine value.
-    all_touched : bool, defalt False
+    all_touched : bool, default False
         If True, all grid cells touched by polygon or line geometries will be
         updated. Default False will only update cells whose center is within
         the polygon or line is on the render path. Ignored for points.
