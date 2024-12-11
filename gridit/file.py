@@ -145,7 +145,7 @@ def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwarg
         Output file to write.
     attribute : str or list
         Attribute name. If array is 2D, this is either a str or list with
-        length 1. If array is 3D, this is a list with the same lenght as
+        length 1. If array is 3D, this is a list with the same length as
         the first dimension.
     layer : str or None (default)
         Vector layer, if implemented by vector driver.

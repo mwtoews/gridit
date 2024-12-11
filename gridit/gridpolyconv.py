@@ -38,7 +38,7 @@ class GridPolyConv:
     poly_idx : tuple
         Tuple of the polygon index.
     idx_ar : array_like
-        Index array, where values are betwen 0 and len(poly_idx), where 0 is
+        Index array, where values are between 0 and len(poly_idx), where 0 is
         nodata. Dimensions are 2D (nrow, ncol) or 3D (nrow, ncol, nlev) if
         more than one level of digitization is used.
     ar_count : array_like, optional
@@ -611,7 +611,7 @@ class GridPolyConv:
                 - "mean" calculate mean values
                 - "median" for median values
                 - "min" for minimum values
-                - "max" for maxiumum values
+                - "max" for maximum values
                 - "quantile(N)" where N is a real value between 0 and 1.
             When a time-window is specified, some of these calculations are
             done differently, such that they take the year-mean values:
