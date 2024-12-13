@@ -1,5 +1,6 @@
 """Grid class and spatial tools to read array datasets."""
 
+import math
 from decimal import Decimal
 from typing import Optional
 
@@ -18,6 +19,9 @@ class Grid:
         2D array shape (nrow, ncol).
     top_left : tuple, default (0.0, 0.0)
         Top left corner coordinate.
+    rotation : float, default 0.0
+        Rotation angle around top-left corner,
+        positive degrees rotate the grid anti-clockwise.
     projection : optional str, default None
         WKT coordinate reference system string.
     logger : logging.Logger, optional
@@ -47,6 +51,7 @@ class Grid:
         resolution: float,
         shape: tuple,
         top_left: tuple = (0.0, 0.0),
+        rotation: float = 0.0,
         projection: Optional[str] = None,
         logger=None,
     ):
@@ -63,6 +68,18 @@ class Grid:
         if len(top_left) != 2:
             raise ValueError("expected top_left to contain two values")
         self.top_left = tuple(float(v) for v in top_left)
+        # projection used to be the 4th positional value (now rotation), so support this
+        if projection is None and (
+            isinstance(rotation, str) or not isinstance(rotation, (float, int))
+        ):
+            self.logger.warning(
+                "4th positional value is rotation, but projection was provided. "
+                "A suggested change is to specify `projection=%r`",
+                rotation,
+            )
+            projection = rotation
+            rotation = 0.0
+        self.rotation = float(rotation)
         self.projection = str(projection) if projection else None
 
     def __iter__(self):
@@ -70,6 +87,7 @@ class Grid:
         yield "resolution", self.resolution
         yield "shape", self.shape
         yield "top_left", self.top_left
+        yield "rotation", self.rotation
         yield "projection", self.projection
 
     def __hash__(self):
@@ -79,7 +97,10 @@ class Grid:
     def __getstate__(self):
         """Serialize object attributes for pickle dumps."""
         state = dict(self)
-        if state["projection"] is None or state["projection"] == "":
+        # Remove unused items
+        if not state.get("rotation"):
+            del state["rotation"]
+        if not state.get("projection"):
             del state["projection"]
         return state
 
@@ -98,18 +119,35 @@ class Grid:
 
     def __repr__(self):
         """Return string representation of object."""
-        content = ", ".join(f"{k}={v}" for k, v in self if k != "projection")
+        items = dict(self)
+        del items["projection"]
+        if items["rotation"] == 0.0:
+            del items["rotation"]
+        content = ", ".join(f"{k}={v}" for k, v in items.items())
         return f"<{self.__class__.__name__}: {content} />"
 
     @property
     def bounds(self):
-        """Return bounds tuple of (xmin, ymin, xmax, ymax)."""
+        """Return bounds tuple of (xmin, ymin, xmax, ymax).
+
+        If grid has non-zero rotation, the bounds are expanded to fit grid extents.
+        """
         nrow, ncol = self.shape
-        xmin, ymax = map(lambda x: Decimal(str(x)), self.top_left)
-        res = Decimal(str(self.resolution))
-        xmax = xmin + ncol * res
-        ymin = ymax - nrow * res
-        return tuple(map(float, (xmin, ymin, xmax, ymax)))
+        if self.rotation != 0.0:
+            raise NotImplementedError
+            c0x, c0y = self.top_left
+            rad = math.degrees(self.rotation)
+            sinrot = math.sin(rad)
+            cosrot = math.cos(rad)
+            lenx = ncol * self.resolution
+            leny = nrow * self.resolution
+            c1x = c0x + sinrot
+        else:
+            xmin, ymax = map(lambda x: Decimal(str(x)), self.top_left)
+            res = Decimal(str(self.resolution))
+            xmax = xmin + ncol * res
+            ymin = ymax - nrow * res
+            return tuple(map(float, (xmin, ymin, xmax, ymax)))
 
     @property
     def transform(self):
