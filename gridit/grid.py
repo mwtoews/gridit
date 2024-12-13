@@ -112,6 +112,25 @@ class Grid:
         return tuple(map(float, (xmin, ymin, xmax, ymax)))
 
     @property
+    def corner_coords(self):
+        """Return 4 tuples of (x, y) coordinates to grid corners.
+
+        The order of the corners can be described with this figure:
+        (x0, y0)  (x3, y3)
+           +---------+
+           |         |
+           +---------+
+        (x1, y1)  (x2, y2)
+        """
+        xmin, ymin, xmax, ymax = self.bounds
+        return [
+            (xmin, ymax),
+            (xmin, ymin),
+            (xmax, ymin),
+            (xmax, ymax),
+        ]
+
+    @property
     def transform(self):
         """Return Affine transform; requires affine."""
         try:
