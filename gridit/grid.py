@@ -76,6 +76,17 @@ class Grid:
         """Return unique hash based on content."""
         return hash(tuple(self))
 
+    def __getstate__(self):
+        """Serialize object attributes for pickle dumps."""
+        state = dict(self)
+        if state["projection"] is None or state["projection"] == "":
+            del state["projection"]
+        return state
+
+    def __setstate__(self, state):
+        """Set object attributes from pickle loads."""
+        self.__init__(**state)
+
     def __eq__(self, other):
         """Return True if objects are equal."""
         if self.__class__.__name__ != other.__class__.__name__:
