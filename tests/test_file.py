@@ -321,7 +321,7 @@ def test_fiona_filter_collection():
             decimal=4,
         )
 
-        if fiona.__version__[0:3] >= "1.9":
+        if tuple(map(int, fiona.__version__.split(".", maxsplit=2)[0:2])) >= (1, 9):
             flt = fiona_filter_collection(ds, filter="id=2")
             assert len(flt) == 1
             np.testing.assert_array_almost_equal(

@@ -60,7 +60,7 @@ jobs:
       - name: Run tests with older packages
         if: matrix.python-version == '3.9'
         run: |
-          pip install "pandas<2.0" "geopandas<1.0" "fiona<1.10" "shapely<2.0" "numpy<2.0"
+          pip install "pandas<2.0" "geopandas<1.0" "fiona<1.9" "shapely<2.0" "numpy<2.0" "flopy<3.5"
           pytest -v -n2 --cov --cov-append
 
       - name: Upload coverage reports to Codecov
