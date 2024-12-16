@@ -312,7 +312,7 @@ def fiona_filter_collection(ds, filter):
                         found += 1
                         flt.write(feat)
     elif isinstance(filter, str):
-        if fiona.__version__[0:3] < "1.9":
+        if tuple(map(int, fiona.__version__.split(".", maxsplit=2)[0:2])) < (1, 9):
             raise ValueError(
                 "Fiona 1.9 or later required to use filter str as SQL WHERE"
             )

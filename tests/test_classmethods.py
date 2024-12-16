@@ -346,7 +346,7 @@ def test_grid_from_vector_line():
 def test_grid_from_vector_filter_sql_where():
     import fiona
 
-    if fiona.__version__[0:3] < "1.9":
+    if tuple(map(int, fiona.__version__.split(".", maxsplit=2)[0:2])) < (1, 9):
         pytest.skip("Fiona 1.9 or later required to use SQL WHERE")
 
     # filter
