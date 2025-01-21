@@ -110,6 +110,14 @@ def test_get_shape_top_left_point(resolution, snap, top_left):
         (33.3, 6.7, "full", (33.3, 99.9), (2, 1)),
         (33.3, 9.0, "full", (0.0, 99.9), (2, 2)),
         (33.3, 9.0, "full", (0.0, 99.9), (2, 2)),
+        (0.2, -0.01, "full", (42.0, 73.0), (1, 1)),
+        (0.2, -0.01, "half", (41.9, 73.1), (1, 1)),
+        (0.2, -0.01, "top-left", (42.0, 73.0), (1, 1)),
+        (0.2, -0.01, "top-right", (41.8, 73.0), (1, 1)),
+        (0.2, -0.01, "bottom-left", (42.0, 73.2), (1, 1)),
+        (0.2, -0.01, "bottom-right", (41.8, 73.2), (1, 1)),
+        (0.2, -0.01, (1.0, 1.0), (42.0, 73.0), (1, 1)),
+        (0.2, -0.01, (12.9, 12.71), (41.9, 73.11), (1, 1)),
     ],
 )
 def test_get_shape_top_left_buffer(resolution, buffer, snap, top_left, shape):
@@ -124,10 +132,16 @@ def test_get_shape_top_left_buffer(resolution, buffer, snap, top_left, shape):
     maxy = Decimal(str(maxy))
     maxx = minx + resolution * nx
     miny = maxy - resolution * ny
+    print(
+        f"POLYGON (({minx} {maxy}, {minx} {miny}, "
+        f"{maxx} {miny}, {maxx} {maxy}, {minx} {maxy}))"
+    )
     assert minx <= x <= maxx
     assert miny <= y <= maxy
     # check snapped edges touch
     if isinstance(snap, str):
+        if buffer < 0.0:
+            buffer = Decimal(0)
         if "top" in snap:
             assert maxy == y + buffer
         if "bottom" in snap:
@@ -243,6 +257,20 @@ def test_grid_from_raster_buffer():
     expected = Grid(10.0, (227, 172), (1748668.0, 5451122.0), grid.projection)
     assert grid == expected
 
+    # with negative buffer
+    grid = Grid.from_raster(mana_dem_path, 10.0, buffer=-20.0)
+    expected = Grid(10.0, (219, 164), (1748700.0, 5451080.0), grid.projection)
+    assert grid == expected
+
+    # with negative buffer + snap modes
+    grid = Grid.from_raster(mana_dem_path, 10.0, buffer=-20.0, snap="top-left")
+    expected = Grid(10.0, (219, 164), (1748708.0, 5451076.0), grid.projection)
+    assert grid == expected
+
+    grid = Grid.from_raster(mana_dem_path, 10.0, buffer=-20.0, snap="bottom-left")
+    expected = Grid(10.0, (219, 164), (1748708.0, 5451082.0), grid.projection)
+    assert grid == expected
+
 
 @requires_pkg("rasterio")
 def test_grid_from_raster_nocrs():
@@ -314,6 +342,11 @@ def test_grid_from_vector_polygon():
     expected = Grid(100.0, (34, 28), (1748100.0, 5451700.0), grid.projection)
     assert grid == expected
 
+    # negative buffer
+    grid = Grid.from_vector(mana_polygons_path, 100, buffer=-50)
+    expected = Grid(100.0, (22, 17), (1748700.0, 5451100.0), grid.projection)
+    assert grid == expected
+
 
 @requires_pkg("fiona")
 def test_grid_from_vector_line():
@@ -339,6 +372,11 @@ def test_grid_from_vector_line():
     # buffer + half snap mode
     grid = Grid.from_vector(lines_path, 250, buffer=500, snap="half")
     expected = Grid(250.0, (71, 67), (1802875.0, 5878875.0), grid.projection)
+    assert grid == expected
+
+    # negative buffer
+    grid = Grid.from_vector(lines_path, 250, buffer=-500)
+    expected = Grid(250.0, (63, 60), (1803750.0, 5878000.0), grid.projection)
     assert grid == expected
 
 
