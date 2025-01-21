@@ -27,7 +27,7 @@ def get_shape_top_left(
     resolution : float or Decimal
         Grid resolution for x- and y-directions.
     buffer : float or Decimal, default Decimal('0')
-        Optional buffer distance to expand bounds.
+        Add buffer to extents of bounding box. Negative values contract bounds.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -57,13 +57,17 @@ def get_shape_top_left(
         raise ValueError("'miny' must be less than 'maxy'")
     elif resolution <= 0:
         raise ValueError("'resolution' must be greater than zero")
-    elif buffer < 0:
-        raise ValueError("'buffer' must be zero or greater")
-    if buffer > 0.0:
+    if buffer != 0.0:
         minx -= buffer
         miny -= buffer
         maxx += buffer
         maxy += buffer
+        if buffer < 0.0:
+            # correct too much contraction with average of bounds
+            if minx > maxx:
+                minx = maxx = (minx + maxx) / 2
+            if miny > maxy:
+                miny = maxy = (miny + maxy) / 2
     dx = dy = resolution
     if snap == "full":
         snapx = snapy = Decimal("0")
@@ -110,10 +114,6 @@ def get_shape_top_left(
     ny = int((maxy - miny) / dy) or 1
     shape = ny, nx
     top_left = (float(minx), float(maxy))
-    # print(
-    #     f"POLYGON (({minx} {maxy}, {minx} {miny}, "
-    #     f"{maxx} {miny}, {maxx} {maxy}, {minx} {maxy}))"
-    # )
     return shape, top_left
 
 
@@ -144,7 +144,7 @@ def from_bbox(
     resolution : float or Decimal
         A grid resolution, e.g. 250.0 for 250m x 250m
     buffer : float or Decimal, default Decimal('0')
-        Add buffer to extents of bounding box.
+        Add buffer to extents of bounding box. Negative values contract bounds.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -211,7 +211,7 @@ def from_raster(
         same resolution, bounds and shape as the raster. If specified, the
         bounds may change relative to 'snap' option, which has default 'full'.
     buffer : float or Decimal, default Decimal('0')
-        Add buffer to extents of raster.
+        Add buffer to extents of raster. Negative values contract bounds.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -219,8 +219,6 @@ def from_raster(
         snap the grid to align with this coordinate. Alternatively,
         a coordinate tuple (snapx, snapy) can be provided to snap the grid,
         although the grid does not necessarily include the coordinate.
-        The snap option is ignored by default if resolution is specified,
-        or buffer is non-zero.
 
     logger : logging.Logger, optional
         Logger to show messages.
@@ -296,7 +294,7 @@ def from_vector(
         select features with several values. A SQL WHERE statement can also be
         used if Fiona 1.9 or later is installed.
     buffer : float or Decimal, default Decimal('0')
-        Add buffer to extents of vector data.
+        Add buffer to extents of vector data. Negative values contract bounds.
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to

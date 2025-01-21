@@ -73,7 +73,8 @@ def add_grid_parser_arguments(parser):
         metavar="BUF",
         type=Decimal,
         default=Decimal("0"),
-        help="Add buffer to extents of grid, default 0.",
+        help="Add buffer to extents of grid. Negative values contract bounds. "
+        "Default 0 does not modify bounds.",
     )
     grid_group.add_argument(
         "--snap",
@@ -86,8 +87,6 @@ def add_grid_parser_arguments(parser):
         snap the grid to align with this coordinate. Alternatively,
         a coordinate tuple (snapx, snapy) can be provided to snap the grid,
         although the grid does not necessarily include the coordinate.
-        The snap option is ignored by --grid-from-raster by default if
-        --resolution is specified, or --buffer is non-zero.
         """
         ),
     )
