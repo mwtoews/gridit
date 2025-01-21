@@ -14,10 +14,17 @@ if _module_logger_name not in [_.name for _ in module_logger.handlers]:
     else:
         import sys
 
-        formatter = logging.Formatter(
-            "%(asctime)s.%(msecs)03d:%(levelname)s:%(name)s:%(message)s", "%H:%M:%S"
-        )
-        handler = logging.StreamHandler(stream=sys.stdout)
+        fmt1 = "%(asctime)s.%(msecs)03d:"
+        fmt2 = "%(levelname)s:%(name)s:%(message)s"
+        datefmt = "%H:%M:%S"
+        try:
+            import colorlog
+
+            formatter = colorlog.ColoredFormatter(f"{fmt1}%(log_color)s{fmt2}", datefmt)
+            handler = colorlog.StreamHandler(stream=sys.stdout)
+        except ModuleNotFoundError:
+            formatter = logging.Formatter(fmt1 + fmt2, datefmt)
+            handler = logging.StreamHandler(stream=sys.stdout)
         handler.name = _module_logger_name
         handler.setFormatter(formatter)
         module_logger.addHandler(handler)
