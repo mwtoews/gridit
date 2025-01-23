@@ -15,7 +15,7 @@ snap_modes = ["full", "half"] + list("-".join(two) for two in product(_tb, _lr))
 def get_shape_top_left(
     bounds: tuple,
     resolution: Union[float, Decimal],
-    buffer: Union[float, Decimal] = Decimal("0"),
+    buffer: Union[float, Decimal, tuple] = Decimal("0"),
     snap: Union[str, tuple] = "full",
 ):
     """Get shape and top-left coordinate to define a grid from bounds.
@@ -26,8 +26,10 @@ def get_shape_top_left(
         Bounding box, ordered (minx, miny, maxx, maxy).
     resolution : float or Decimal
         Grid resolution for x- and y-directions.
-    buffer : float or Decimal, default Decimal('0')
+    buffer : float, Decimal, or tuple; default Decimal('0')
         Add buffer to extents of bounding box. Negative values contract bounds.
+        A tuple of buffers can specify two directions (leftright, bottomtop),
+        or four sides (left, bottom, right, top).
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -49,25 +51,58 @@ def get_shape_top_left(
     )
     if not isinstance(resolution, Decimal):
         resolution = Decimal(str(resolution))
-    if not isinstance(buffer, Decimal):
-        buffer = Decimal(str(buffer))
+    if isinstance(buffer, tuple):
+        if len(buffer) not in {2, 4}:
+            raise ValueError("'buffer' tuple must have 2 or 4 items")
+        buffer_items = [
+            buf if isinstance(buf, Decimal) else Decimal(str(buf)) for buf in buffer
+        ]
+        buffer = any(buffer_items)
+        if len(buffer_items) == 2:
+            buffer_items *= 2
+    else:
+        if not isinstance(buffer, Decimal):
+            buffer = Decimal(str(buffer))
+        buffer_items = [buffer] * 4
     if not (minx <= maxx):
         raise ValueError("'minx' must be less than 'maxx'")
     elif not (miny <= maxy):
         raise ValueError("'miny' must be less than 'maxy'")
     elif resolution <= 0:
         raise ValueError("'resolution' must be greater than zero")
-    if buffer != 0.0:
-        minx -= buffer
-        miny -= buffer
-        maxx += buffer
-        maxy += buffer
-        if buffer < 0.0:
+    if buffer:
+        minx -= buffer_items[0]
+        miny -= buffer_items[1]
+        maxx += buffer_items[2]
+        maxy += buffer_items[3]
+        if min(buffer_items) < 0.0:
             # correct too much contraction with average of bounds
             if minx > maxx:
-                minx = maxx = (minx + maxx) / 2
+                midx = False
+                if isinstance(snap, str):
+                    if "left" in snap:
+                        maxx = minx
+                    elif "right" in snap:
+                        minx = maxx
+                    else:
+                        midx = True
+                else:
+                    midx = True
+                if midx:
+                    minx = maxx = (minx + maxx) / 2
             if miny > maxy:
-                miny = maxy = (miny + maxy) / 2
+                midy = False
+                if isinstance(snap, str):
+                    if "top" in snap:
+                        miny = maxy
+                    elif "bottom" in snap:
+                        maxy = miny
+                    else:
+                        midy = True
+                else:
+                    midy = True
+                if midy:
+                    miny = maxy = (miny + maxy) / 2
     dx = dy = resolution
     if snap == "full":
         snapx = snapy = Decimal("0")
@@ -114,6 +149,13 @@ def get_shape_top_left(
     ny = int((maxy - miny) / dy) or 1
     shape = ny, nx
     top_left = (float(minx), float(maxy))
+    # Uncomment to see WKT for bounds
+    # maxx = minx + dx * nx
+    # miny = maxy - dy * ny
+    # print(
+    #     f"POLYGON (({minx} {maxy}, {minx} {miny}, "
+    #     f"{maxx} {miny}, {maxx} {maxy}, {minx} {maxy}))"
+    # )
     return shape, top_left
 
 
@@ -143,8 +185,10 @@ def from_bbox(
         Extents of a bounding box.
     resolution : float or Decimal
         A grid resolution, e.g. 250.0 for 250m x 250m
-    buffer : float or Decimal, default Decimal('0')
+    buffer : float, Decimal, or tuple; default Decimal('0')
         Add buffer to extents of bounding box. Negative values contract bounds.
+        A tuple of buffers can specify two directions (leftright, bottomtop),
+        or four sides (left, bottom, right, top).
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -196,7 +240,7 @@ def from_raster(
     fname: str,
     resolution: Union[float, Decimal, None] = None,
     *,
-    buffer: Union[float, Decimal] = Decimal("0"),
+    buffer: Union[float, Decimal, tuple] = Decimal("0"),
     snap: Union[str, tuple] = "full",
     logger=None,
 ):
@@ -210,8 +254,10 @@ def from_raster(
         An optional grid resolution. If not specified, the grid will have the
         same resolution, bounds and shape as the raster. If specified, the
         bounds may change relative to 'snap' option, which has default 'full'.
-    buffer : float or Decimal, default Decimal('0')
+    buffer : float, Decimal, or tuple; default Decimal('0')
         Add buffer to extents of raster. Negative values contract bounds.
+        A tuple of buffers can specify two directions (leftright, bottomtop),
+        or four sides (left, bottom, right, top).
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
@@ -246,7 +292,7 @@ def from_raster(
         logger.error("expected e == -a, but %r != %r", t.e, t.a)
     if t.b != 0 or t.d != 0:
         logger.error("expected b == d == 0.0, but %r and %r", t.b, t.d)
-    if resolution is not None or buffer != 0:
+    if resolution is not None or buffer:
         ny, nx = shape
         a, _, c, _, e, f = map(lambda x: Decimal(str(x)), list(t)[:6])
         bounds = c, f + ny * e, c + nx * a, f
@@ -273,7 +319,7 @@ def from_vector(
     resolution: Union[float, Decimal],
     *,
     filter: Union[dict, str, None] = None,
-    buffer: Union[float, Decimal] = Decimal("0"),
+    buffer: Union[float, Decimal, tuple] = Decimal("0"),
     snap: Union[str, tuple] = "full",
     layer=None,
     logger=None,
@@ -293,8 +339,10 @@ def from_vector(
         feature with attribute "id" value 4. Or ``{"id": [4, 7, 19]}`` to
         select features with several values. A SQL WHERE statement can also be
         used if Fiona 1.9 or later is installed.
-    buffer : float or Decimal, default Decimal('0')
+    buffer : float, Decimal, or tuple; default Decimal('0')
         Add buffer to extents of vector data. Negative values contract bounds.
+        A tuple of buffers can specify two directions (leftright, bottomtop),
+        or four sides (left, bottom, right, top).
     snap : {full, half, top-left, top-right, bottom-left, bottom-right} or tuple
         Snap mode used to evaluate grid size and offset. Default 'full' will
         snap bounds to a multiple of resolution, and 'half' will snap to
