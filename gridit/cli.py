@@ -3,13 +3,31 @@
 __all__ = []
 
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from importlib.util import find_spec
 from textwrap import dedent
 
 from gridit.grid import Grid
 
 has_flopy = find_spec("flopy") is not None
+
+
+def decimal_splitter(inp: str):
+    """Returns Decimal or tuple of Decimal from input."""
+    try:  # return scalar Decimal
+        return Decimal(inp)
+    except InvalidOperation:
+        pass
+    # return tuple of Decimal
+    items = inp
+    if items.startswith("(") and items.endswith(")"):
+        items = items[1:-1]
+    if "," in items:
+        items = items.replace(",", " ")
+    try:
+        return tuple(Decimal(item) for item in items.split())
+    except InvalidOperation:
+        raise ValueError(f"cannot convert {inp!r} into Decimal or tuple of Decimal")
 
 
 def add_grid_parser_arguments(parser):
@@ -71,10 +89,15 @@ def add_grid_parser_arguments(parser):
     grid_group.add_argument(
         "--buffer",
         metavar="BUF",
-        type=Decimal,
         default=Decimal("0"),
-        help="Add buffer to extents of grid. Negative values contract bounds. "
-        "Default 0 does not modify bounds.",
+        help=dedent(
+            """\
+        Add buffer to extents of data. Negative values contract bounds.
+        A tuple of buffers can specify two directions (leftright, bottomtop),
+        or four sides (left, bottom, right, top).
+        Default 0 does not modify bounds.
+        """
+        ),
     )
     grid_group.add_argument(
         "--snap",
@@ -115,25 +138,39 @@ def process_grid_options(args, logger):
 
     """
 
-    def error_msg(msg: str, name: str = ""):
+    def raise_error(msg: str, name: str = ""):
+        msg = str(msg)
         if name:
-            return "--" + name.replace("_", "-") + ": " + msg
-        else:
-            return msg
+            msg = "--" + name.replace("_", "-") + ": " + msg
+        raise ValueError(msg)
 
     mask = None
     grid_args = {"logger": logger}
     if args.resolution is not None:
         grid_args["resolution"] = args.resolution
     if args.buffer:
-        grid_args["buffer"] = args.buffer
+        try:
+            buffer = decimal_splitter(args.buffer)
+        except ValueError as err:
+            raise_error(err, "buffer")
+        if isinstance(buffer, tuple) and len(buffer) not in {2, 4}:
+            raise_error("must have two or four values", "buffer")
+        grid_args["buffer"] = buffer
     if args.snap:
-        if snapxy := re.findall(r"([\-\+]?[\d\.]+)", args.snap):
-            if len(snapxy) != 2:
-                raise ValueError("snap tuple must have two values")
-            grid_args["snap"] = tuple(map(Decimal, snapxy))
+        if re.fullmatch(r"[a-zA-Z\-]+", args.snap):
+            from gridit.classmethods import snap_modes
+
+            snap = args.snap
+            if snap not in snap_modes:
+                raise_error(f"must be one of: {snap_modes}", "snap")
         else:
-            grid_args["snap"] = args.snap
+            try:
+                snap = decimal_splitter(args.snap)
+            except ValueError as err:
+                raise_error(err, "snap")
+            if isinstance(snap, tuple) and len(snap) != 2:
+                raise_error("must have two values", "snap")
+        grid_args["snap"] = snap
     if args.projection:
         grid_args["projection"] = args.projection
     from_grid_methods = ["bbox", "raster", "vector"]
@@ -145,37 +182,31 @@ def process_grid_options(args, logger):
         for x in from_grid_args
     )
     if from_grid_count != 1:
-        raise ValueError(
+        raise_error(
             "one of {} options must be specified; found {}".format(
                 ", ".join(repr(x) for x in from_grid_args), from_grid_count
             )
         )
     elif args.grid_from_bbox is not None:
         if args.resolution is None:
-            raise ValueError(error_msg("requires --resolution", "grid_from_bbox"))
+            raise_error("requires --resolution", "grid_from_bbox")
         grid = Grid.from_bbox(*args.grid_from_bbox, **grid_args)
     elif args.grid_from_raster is not None:
         try:
             import rasterio
         except ModuleNotFoundError as err:
-            raise ModuleNotFoundError(
-                error_msg(f"cannot read from raster: {err}", "grid_from_raster")
-            )
+            raise_error(f"cannot read from raster: {err}", "grid_from_raster")
         try:
             grid = Grid.from_raster(args.grid_from_raster, **grid_args)
         except rasterio.errors.RasterioIOError as err:
-            raise OSError(
-                error_msg(f"cannot read from raster: {err}", "grid_from_raster")
-            )
+            raise_error(f"cannot read from raster: {err}", "grid_from_raster")
     elif args.grid_from_vector is not None:
         try:
             import fiona
         except ModuleNotFoundError as err:
-            raise ModuleNotFoundError(
-                error_msg(f"cannot read from vector: {err}", "grid_from_vector")
-            )
+            raise_error(f"cannot read from vector: {err}", "grid_from_vector")
         if args.resolution is None:
-            raise ValueError(error_msg("requires --resolution", "grid_from_vector"))
+            raise_error("requires --resolution", "grid_from_vector")
         fname = args.grid_from_vector
         layer = None
         if ":" in fname and (split := fname.rindex(":")) > 1:
@@ -184,9 +215,7 @@ def process_grid_options(args, logger):
         try:
             grid = Grid.from_vector(fname, layer=layer, **grid_args)
         except fiona.errors.DriverError as err:
-            raise OSError(
-                error_msg(f"cannot read from vector: {err}", "grid_from_vector")
-            )
+            raise_error(f"cannot read from vector: {err}", "grid_from_vector")
         mask = grid.mask_from_vector(fname, layer=layer)
     elif has_flopy and args.grid_from_modflow is not None:
         model = args.grid_from_modflow

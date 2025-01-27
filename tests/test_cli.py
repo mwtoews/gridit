@@ -35,21 +35,52 @@ def test_grid_from_bbox(grid_from_bbox_args):
     assert returncode == 0
 
 
-def test_grid_from_bbox_more_args(grid_from_bbox_args):
-    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "half"])
+@pytest.mark.parametrize(
+    "more",
+    [
+        ["--snap", "half"],
+        ["--snap", "(1.1 -2.9)"],
+        ["--buffer", "1,-1"],
+        ["--buffer", "1,-1,2,2"],
+    ],
+)
+def test_grid_from_bbox_more_args(grid_from_bbox_args, more):
+    stdout, stderr, returncode = run_cli(grid_from_bbox_args + more)
     assert len(stderr) == 0
     assert len(stdout) > 0
     assert returncode == 0
 
-    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "(1.1 -2.9)"])
-    assert len(stderr) == 0
-    assert len(stdout) > 0
-    assert returncode == 0
 
-    # bad arg
-    stdout, stderr, returncode = run_cli(grid_from_bbox_args + ["--snap", "HALF"])
+@pytest.mark.parametrize(
+    "more, msg",
+    [
+        [["--snap", "2x2"], "--snap: cannot convert '2x2' into"],
+        [["--snap", "HALF"], "--snap: must be one of"],
+        [["--snap", "(1 2 3 4)"], "--snap: must have two values"],
+        [["--buffer", "half"], "--buffer: cannot convert 'half' into"],
+        [["--buffer", "1,2,3"], "--buffer: must have two or four values"],
+    ],
+)
+def test_grid_from_bbox_more_args_error(grid_from_bbox_args, more, msg):
+    stdout, stderr, returncode = run_cli(grid_from_bbox_args + more)
     assert len(stderr) > 0
     assert len(stdout) > 0
+    assert msg in stdout
+    assert returncode != 0
+
+
+@pytest.mark.parametrize(
+    "args, msg",
+    [
+        [["--resolution", "25"], "options must be specified"],
+        [["--grid-from-bbox"] + list("0011"), "-grid-from-bbox: requires --resolution"],
+    ],
+)
+def test_grid_from_bbox_bad_args(args, msg):
+    stdout, stderr, returncode = run_cli([module_name] + args)
+    assert len(stderr) > 0
+    assert len(stdout) > 0
+    assert msg in stdout
     assert returncode != 0
 
 
