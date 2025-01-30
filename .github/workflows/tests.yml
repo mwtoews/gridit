@@ -55,7 +55,7 @@ jobs:
 
       - name: Run doctest
         run: |
-          pytest -v gridit --doctest-modules
+          pytest -v --doctest-modules src
 
       - name: Run tests with older packages
         if: matrix.python-version == '3.9'

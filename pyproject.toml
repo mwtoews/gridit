@@ -52,10 +52,13 @@ Repository = "https://github.com/mwtoews/gridit"
 source = "vcs"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "gridit/_version.py"
+version-file = "src/gridit/_version.py"
 
 [tool.hatch.build.targets.sdist]
-only-include = ["gridit", "tests"]
+only-include = ["src", "tests"]
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = [
