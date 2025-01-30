@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "Please cite this software using these metadata."
 type: software
 title: "Gridit"
-version: "0.6"
-date-released: "2024-06-26"
+version: "0.7"
+date-released: "2025-01-30"
 doi: 10.5281/zenodo.7030428
 abstract: "Gridit provides spatial tools to translate raster or vector geometry data to regular grids."
 repository-artifact: https://pypi.org/project/gridit

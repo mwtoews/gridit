@@ -2,6 +2,25 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+### Added
+### Changed
+### Fixed
+
+## [0.7] - 2025-01-30
+### Added
+- Add `snap` parameter to allow different snap modes used for grid size and offsets (#38).
+- Create modelgrid without flopy; allow loading from `.dis.grb` (#39).
+- Support pickle serialization for Grid objects (#46).
+- Add `Grid.corner_coordinates` attribute (#48).
+### Changed
+- Drop Python 3.8 (#42).
+- Allow kwargs for raster/vector creation options (#40).
+- Allow negative buffer to contract bounds (#50).
+- Enhance buffer to allow a tuple of two or four items (#52).
+### Fixed
+- Handle unset nodata and correctly set mask for expanded areas (#37).
+- `Grid.from_raster` should keep array shape and bounds by default (#41).
+- Fix version checking for Fiona 1.10 for some options (#47).
 
 ## [0.6] - 2024-06-26
 ### Changed
@@ -53,7 +72,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.6...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.7...HEAD
+[0.7]: https://github.com/mwtoews/gridit/compare/0.6...0.7
 [0.6]: https://github.com/mwtoews/gridit/compare/0.5...0.6
 [0.5]: https://github.com/mwtoews/gridit/compare/0.4...0.5
 [0.4]: https://github.com/mwtoews/gridit/compare/0.3...0.4
