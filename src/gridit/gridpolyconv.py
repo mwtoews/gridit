@@ -69,8 +69,7 @@ class GridPolyConv:
                 poly_idx = tuple(poly_idx)
             except Exception:
                 raise ValueError(
-                    "poly_idx must be a tuple or list-like; "
-                    f"found {type(poly_idx)!r}"
+                    f"poly_idx must be a tuple or list-like; found {type(poly_idx)!r}"
                 )
         if len(poly_idx) != len(set(poly_idx)):
             raise ValueError("poly_idx values are not unique")
@@ -78,7 +77,7 @@ class GridPolyConv:
         # self.idx_d = dict(enumerate(poly_idx, 1))
         if not isinstance(idx_ar, np.ndarray):
             raise ValueError(f"idx_ar must be a numpy array; found {type(idx_ar)!r}")
-        elif not np.issubdtype(idx_ar.dtype, np.integer):
+        if not np.issubdtype(idx_ar.dtype, np.integer):
             raise ValueError(f"idx_ar dtype must integer-based; found {idx_ar.dtype!r}")
         self.idx_ar = idx_ar.copy()
         self.idx_ar.flags.writeable = False
@@ -101,17 +100,17 @@ class GridPolyConv:
         elif idx_ar.ndim == 3:
             if ar_count is None:
                 raise ValueError("ar_count must be specified if idx_ar is 3D")
-            elif not isinstance(ar_count, np.ndarray):
+            if not isinstance(ar_count, np.ndarray):
                 raise ValueError(
-                    "ar_count must be a numpy array; " f"found {type(ar_count)!r}"
+                    f"ar_count must be a numpy array; found {type(ar_count)!r}"
                 )
-            elif not np.issubdtype(ar_count.dtype, np.integer):
+            if not np.issubdtype(ar_count.dtype, np.integer):
                 raise ValueError(
-                    "ar_count dtype must integer-based; " f"found {ar_count.dtype!r}"
+                    f"ar_count dtype must integer-based; found {ar_count.dtype!r}"
                 )
-            elif ar_count.shape != idx_ar.shape:
+            if ar_count.shape != idx_ar.shape:
                 raise ValueError(
-                    "ar_count shape must match idx_ar; " f"found {ar_count.shape}"
+                    f"ar_count shape must match idx_ar; found {ar_count.shape}"
                 )
             self.ar_count = ar_count.copy()
             self.ar_count.flags.writeable = False
@@ -224,13 +223,13 @@ class GridPolyConv:
             raise ValueError("grid must be an instance of Grid")
         if not isinstance(refine, int):
             raise ValueError("refine must be int")
-        elif refine < 1:
+        if refine < 1:
             raise ValueError("refine must be >= 1")
         use_refine = refine > 1
         if use_refine:
             if not isinstance(max_levels, int):
                 raise ValueError("max_levels must be int")
-            elif max_levels < 1:
+            if max_levels < 1:
                 raise ValueError("max_levels must be >= 1")
         if logger is None:
             logger = get_logger(__package__)
@@ -263,14 +262,16 @@ class GridPolyConv:
                 ]
                 if len(list_dir) == 0:
                     return None
-                elif fname in list_dir:
+                if fname in list_dir:
                     return dirname / fname
-                elif caching == 1:
+                if caching == 1:
                     prefix = fname[:9]
                     part_list_dir = [f for f in list_dir if f[:9] == prefix]
                     if part_list_dir:
                         # there might be more than one!
                         return dirname / part_list_dir[0]
+                    return None
+                return None
 
             if caching == 1:
                 args = (grid, poly_idx, refine)
@@ -491,8 +492,7 @@ class GridPolyConv:
     def from_pickle(fname: str):
         """Unpickle object from a file."""
         with open(fname, "rb") as f:
-            obj = pickle.load(f)
-        return obj
+            return pickle.load(f)
 
     def array_from_values(self, index, values, fill=0, enforce1d=False):
         """Generate 2D or 3D array from 1D or 2D values.
@@ -526,11 +526,11 @@ class GridPolyConv:
             values = np.array(values)
         if not hasattr(values, "ndim"):
             raise ValueError("expected values be array-like")
-        elif values.ndim not in (1, 2):
+        if values.ndim not in (1, 2):
             raise ValueError("expected values to have 1 or 2 dimensions")
-        elif len(index) != values.shape[-1]:
+        if len(index) != values.shape[-1]:
             raise ValueError(
-                "length of last dimension of values " "does not match index length"
+                "length of last dimension of values does not match index length"
             )
         self.logger.info("reading array from values with shape %s", values.shape)
         if enforce1d and values.ndim != 1:
@@ -540,7 +540,7 @@ class GridPolyConv:
         poly_idx_l = list(self.poly_idx)
         if index_s.isdisjoint(poly_idx_s):
             raise ValueError("index is disjoint from poly_idx")
-        elif not index_s.issuperset(poly_idx_s):
+        if not index_s.issuperset(poly_idx_s):
             raise ValueError("index is not a superset of poly_idx")
         if index != poly_idx_l:
             # subset and/or re-order values to match poly_idx
@@ -686,7 +686,7 @@ class GridPolyConv:
         avail = list(ds.variables.keys())
         if var_name not in avail:
             raise AttributeError(f"cannot find '{var_name}' in variables: {avail}")
-        elif idx_name not in avail:
+        if idx_name not in avail:
             raise AttributeError(f"cannot find '{idx_name}' in variables: {avail}")
         if idx_name not in ds.coords:
             new_coords = []
@@ -763,7 +763,7 @@ class GridPolyConv:
                 else:
                     month_sel = (month >= start_month) & (month <= end_month)
                 self.logger.info(
-                    "performing statistics with a %d-month window, " "starting in %s",
+                    "performing statistics with a %d-month window, starting in %s",
                     num_months,
                     calendar.month_name[start_month],
                 )

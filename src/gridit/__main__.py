@@ -64,7 +64,7 @@ Examples:
       --array-from-raster {Path("tests/data/Mana.tif")} {cl}
       --write-raster {tmpdir / "Mana_100m.tif"} {cl}
       --write-creation-option COMPRESS=deflate
-"""  # noqa
+"""
     waitaku2 = Path("tests/data/waitaku2")
     if has_netcdf4:
         examples += f"""\
@@ -76,7 +76,7 @@ Examples:
       --array-from-netcdf {waitaku2}.nc:rid:myvar:0 {cl}
       --time-stats "quantile(0.75),max" {cl}
       --write-text {tmpdir / "waitaku2_cat.txt"}
-"""  # noqa
+"""
     if has_flopy:
         examples += f"""\
 

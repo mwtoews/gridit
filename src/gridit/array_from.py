@@ -42,9 +42,9 @@ def array_from_array(self, grid, array, resampling=None):
 
     if not isinstance(grid, Grid):
         raise TypeError(f"expected grid to be a Grid; found {type(grid)!r}")
-    elif not (hasattr(array, "ndim") and hasattr(array, "shape")):
+    if not (hasattr(array, "ndim") and hasattr(array, "shape")):
         raise TypeError(f"expected array to be array_like; found {type(array)!r}")
-    elif not (array.ndim in (2, 3) and array.shape[-2:] == grid.shape):
+    if not (array.ndim in (2, 3) and array.shape[-2:] == grid.shape):
         raise ValueError("array has different shape than grid")
 
     rel_res_diff = abs((grid.resolution - self.resolution) / self.resolution) * 100
@@ -267,8 +267,7 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
     # return ar.mask
     if ar.mask.shape:
         return ar.mask
-    else:
-        return np.full(ar.shape, ar.mask)
+    return np.full(ar.shape, ar.mask)
 
 
 def array_from_vector(

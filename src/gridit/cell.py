@@ -255,9 +255,9 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
         for name, array in values.items():
             if not isinstance(name, str):
                 raise ValueError("key for values must be str")
-            elif getattr(array, "shape", None) != self.shape:
+            if getattr(array, "shape", None) != self.shape:
                 raise ValueError(
-                    f"array {name!r} in values must have the same shape " "as the grid"
+                    f"array {name!r} in values must have the same shape as the grid"
                 )
             gdf[name] = array.ravel(order=order)[sel]
     return gdf
