@@ -7,8 +7,8 @@ import numpy as np
 from gridit.logger import get_logger
 
 __all__ = [
-    "is_same_crs",
     "flat_grid_intersect",
+    "is_same_crs",
 ]
 
 
@@ -24,6 +24,7 @@ def is_same_crs(wkt1: str, wkt2: str) -> bool:
     def epsg_code(wkt):
         if match := re.fullmatch(r"EPSG:(\d+)", wkt, re.IGNORECASE):
             return match.groups()[0]
+        return None
 
     code1 = epsg_code(wkt1)
     code2 = epsg_code(wkt2)

@@ -1,6 +1,6 @@
 """Display utilities module."""
 
-__all__ = ["shorten", "print_array"]
+__all__ = ["print_array", "shorten"]
 
 import numpy as np
 
@@ -12,8 +12,7 @@ def shorten(text, width):
     text = text.strip()
     if len(text) < width:
         return text
-    else:
-        return text[: (width - 5)] + "[...]"
+    return text[: (width - 5)] + "[...]"
 
 
 def print_array(ar, logger=None):

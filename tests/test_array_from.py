@@ -391,9 +391,9 @@ def test_array_from_vector(
                 == 1
             ), caplog.messages
         else:
-            assert (
-                sum("selecting default" in msg for msg in caplog.messages) == 0
-            ), caplog.messages
+            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
+                caplog.messages
+            )
             assert (
                 sum(
                     f"using refine={refine} for Polygon" in msg
@@ -574,9 +574,9 @@ def test_array_from_vector_points(caplog, res_shape, attribute, refine, all_touc
                 == 1
             ), caplog.messages
         else:
-            assert (
-                sum("selecting default" in msg for msg in caplog.messages) == 0
-            ), caplog.messages
+            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
+                caplog.messages
+            )
             assert (
                 sum(
                     f"using refine={refine} for Point" in msg for msg in caplog.messages
@@ -622,9 +622,9 @@ def test_array_from_vector_lines(caplog, attribute, refine, all_touched):
                 == 1
             ), caplog.messages
         else:
-            assert (
-                sum("selecting default" in msg for msg in caplog.messages) == 0
-            ), caplog.messages
+            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
+                caplog.messages
+            )
             assert (
                 sum(
                     f"using refine={refine} for 3D LineString" in msg

@@ -53,7 +53,7 @@ def write_raster(grid, array, fname, driver=None, **kwargs):
         raise ModuleNotFoundError("array_from_vector requires rasterio")
     if array.ndim != 2:
         raise ValueError("array must have two-dimensions")
-    elif array.shape != grid.shape:
+    if array.shape != grid.shape:
         raise ValueError("array must have same shape " + str(grid.shape))
     grid.logger.info("writing raster file: %s", fname)
     if driver is None:
@@ -114,22 +114,20 @@ def fiona_property_type(ar):
         frac = np.modf(ar)[0]
         if (frac == 0.0).all():
             return f"float:{precision}"
-        elif (has_dec := np.char.count(ar_str, ".") > 0).any():
+        if (has_dec := np.char.count(ar_str, ".") > 0).any():
             ndc = ar_len[has_dec] - np.char.index(ar_str[has_dec], ".")
             scale = ndc.max() - 1
             return f"float:{precision}.{scale}"
-        else:
-            return "float"
-    elif np.issubdtype(ar.dtype, np.integer):
+        return "float"
+    if np.issubdtype(ar.dtype, np.integer):
         scale = max(len(str(ar.min())), len(str(ar.max())))
         return f"int:{scale}"
-    elif np.issubdtype(ar.dtype, np.bool_):
+    if np.issubdtype(ar.dtype, np.bool_):
         return "int:1"
-    elif np.issubdtype(ar.dtype, np.str_) or np.issubdtype(ar.dtype, np.bytes_):
+    if np.issubdtype(ar.dtype, np.str_) or np.issubdtype(ar.dtype, np.bytes_):
         scale = np.char.str_len(ar).max()
         return f"str:{scale}"
-    else:
-        return "str"
+    return "str"
 
 
 def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwargs):
@@ -179,9 +177,8 @@ def write_vector(grid, array, fname, attribute, layer=None, driver=None, **kwarg
     if not isinstance(attribute, list) or len(attribute) != array.shape[0]:
         if array.shape[0] == 1:
             raise ValueError("attribute must be a str or a 1 item str list")
-        else:
-            raise ValueError(f"attribute must list of str with length {array.shape[0]}")
-    elif array.shape[-2:] != grid.shape:
+        raise ValueError(f"attribute must list of str with length {array.shape[0]}")
+    if array.shape[-2:] != grid.shape:
         raise ValueError(f"last two dimensions of array shape must be {grid.shape}")
     grid.logger.info("writing vector file: %s with layer: %s", fname, layer)
     if driver is None:
@@ -285,7 +282,7 @@ def fiona_filter_collection(ds, filter):
         raise ModuleNotFoundError("fiona_filter_collection requires fiona")
     if not isinstance(ds, fiona.Collection):
         raise ValueError(f"ds must be fiona.Collection; found {type(ds)}")
-    elif ds.closed:
+    if ds.closed:
         raise ValueError("ds is closed")
     flt = fiona.io.MemoryFile().open(driver=ds.driver, schema=ds.schema, crs=ds.crs)
     if isinstance(filter, dict):

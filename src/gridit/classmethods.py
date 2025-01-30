@@ -66,9 +66,9 @@ def get_shape_top_left(
         buffer_items = [buffer] * 4
     if not (minx <= maxx):
         raise ValueError("'minx' must be less than 'maxx'")
-    elif not (miny <= maxy):
+    if not (miny <= maxy):
         raise ValueError("'miny' must be less than 'maxy'")
-    elif resolution <= 0:
+    if resolution <= 0:
         raise ValueError("'resolution' must be greater than zero")
     if buffer:
         minx -= buffer_items[0]

@@ -43,7 +43,7 @@ class ModelGrid:
         delc = self.delc[0]
         if not (self.delc == delc).all():
             raise ValueError("model delc is not constant")
-        elif delr != delc:
+        if delr != delc:
             raise ValueError("model delr and delc are different")
 
         if self.rotation != 0:
@@ -165,7 +165,7 @@ def get_modflow_model(
             stacklevel=2,
         )
         return SimpleNamespace(modelgrid=file_or_dir)
-    elif hasattr(file_or_dir, "modelgrid"):  # this is a flopy-like object
+    if hasattr(file_or_dir, "modelgrid"):  # this is a flopy-like object
         warn(
             "getting modflow model from a flopy-like object is deprecated; "
             "use ModelGrid.from_modelgrid(obj.modelgrid) instead",
@@ -173,13 +173,13 @@ def get_modflow_model(
             stacklevel=2,
         )
         return file_or_dir
-    elif not isinstance(file_or_dir, (str, PathLike)):
+    if not isinstance(file_or_dir, (str, PathLike)):
         raise TypeError(f"expected str or PathLike object; found {type(file_or_dir)}")
 
     pth = Path(file_or_dir).resolve()
     if not pth.exists():
         raise FileNotFoundError(f"cannot read path '{pth}'")
-    elif pth.suffixes[-2:] == [".dis", ".grb"]:
+    if pth.suffixes[-2:] == [".dis", ".grb"]:
         # Binary grid file
         if logger is not None:
             logger.info("reading grid from a binary grid file: %s", pth)
@@ -192,7 +192,7 @@ def get_modflow_model(
                 logger.warning(msg, *args)
         grb = flopy.mf6.utils.MfGrdFile(pth)
         return SimpleNamespace(modelgrid=grb.modelgrid)
-    elif (pth.is_dir() and (pth / "mfsim.nam").is_file()) or pth.name == "mfsim.nam":
+    if (pth.is_dir() and (pth / "mfsim.nam").is_file()) or pth.name == "mfsim.nam":
         # MODFLOW 6
         sim_ws = str(pth) if pth.is_dir() else str(pth.parent)
         if logger is not None:
@@ -219,7 +219,7 @@ def get_modflow_model(
         model = sim.get_model(model_name)
         model.tdis = sim.tdis  # this is a bit of a hack
         return model
-    elif pth.is_file():  # assume 'classic' MOFLOW file
+    if pth.is_file():  # assume 'classic' MOFLOW file
         with catch_warnings():
             filterwarnings("ignore", category=UserWarning)
             try:

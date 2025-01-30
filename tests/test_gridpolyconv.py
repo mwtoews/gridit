@@ -23,17 +23,15 @@ waitaku2_nc = datadir / "waitaku2.nc"
 @pytest.fixture
 def waitaku2_gpc_rid_2():
     grid = Grid.from_bbox(1811435, 5866204, 1815226, 5871934, 250)
-    gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=2, caching=0)
-    return gpc
+    return GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", refine=2, caching=0)
 
 
 @pytest.fixture
 def waitaku2_gpc_rid_5():
     grid = Grid.from_bbox(1806827, 5865749, 1817941, 5875560, 1000)
-    gpc = GridPolyConv.from_grid_vector(
+    return GridPolyConv.from_grid_vector(
         grid, waitaku2_shp, "rid", refine=5, max_levels=6, caching=0
     )
-    return gpc
 
 
 def test_init(caplog):
@@ -221,7 +219,7 @@ def test_waitaku2_500(caplog, waitaku2_index_values):
     # resolution 500 captures a subset of catchment polygons
     grid = Grid.from_vector(waitaku2_shp, 500)
     exp_l = (
-        "missing idx values: [2, 4, 37] or " "'rid' values: [3046727, 3046737, 3048351]"
+        "missing idx values: [2, 4, 37] or 'rid' values: [3046727, 3046737, 3048351]"
     )
     with caplog.at_level(logging.INFO):
         gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
