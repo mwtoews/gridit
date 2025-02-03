@@ -50,8 +50,7 @@ jobs:
         if: matrix.python-version == '3.9'
         run: |
           uv pip uninstall netcdf4 xarray
-          uv pip install "affine<2.0" "pandas<2.0" "geopandas<1.0" "fiona<1.9" "shapely<2.0" "numpy<2.0" "flopy<3.5"
-          uv pip check
+          uv lock -P "affine<2.0" -P "pandas<2.0" -P "geopandas<1.0" -P "fiona<1.9" -P "shapely<2.0" -P "numpy<2.0" -P "flopy<3.5"
           uv run pytest -v -n2 --cov --cov-append
 
       - name: Upload coverage reports to Codecov
