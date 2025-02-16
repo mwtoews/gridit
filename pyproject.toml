@@ -24,7 +24,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["gridit[test,optional]"]
+dev = ["gridit[test,optional]", "pre-commit"]
 optional = [
     "fiona",
     "flopy",
