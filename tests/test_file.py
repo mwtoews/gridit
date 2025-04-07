@@ -176,8 +176,7 @@ def test_write_vector(tmp_path, grid_basic, grid_projection):
         assert len(ds) == 600
         rec = ds[0]
         geom = dict(rec["geometry"])
-        if "geometries" in geom:
-            del geom["geometries"]
+        geom.pop("geometries", None)
         assert geom == {
             "coordinates": [
                 [
