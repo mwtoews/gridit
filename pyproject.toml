@@ -18,20 +18,20 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
 ]
 
 [project.optional-dependencies]
-dev = ["gridit[test,optional]", "pre-commit"]
+dev = ["gridit[test,optional]", "pre-commit", "ruff"]
 optional = [
     "fiona",
     "flopy",
     "matplotlib",
     "netCDF4",
     "geopandas",
-    "rasterio >=1.2.2",
+    "rasterio",
     "scipy",
     "shapely",
     "xarray",

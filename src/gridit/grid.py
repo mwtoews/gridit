@@ -1,7 +1,6 @@
 """Grid class and spatial tools to read array datasets."""
 
 from decimal import Decimal
-from typing import Optional
 
 __all__ = ["Grid"]
 mask_cache = {}
@@ -47,7 +46,7 @@ class Grid:
         resolution: float,
         shape: tuple,
         top_left: tuple = (0.0, 0.0),
-        projection: Optional[str] = None,
+        projection: str | None = None,
         logger=None,
     ):
         if logger is None:

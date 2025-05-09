@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from os import PathLike
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Optional, Union
+from typing import Any
 from warnings import catch_warnings, filterwarnings, warn
 
 import numpy as np
@@ -24,7 +24,7 @@ class ModelGrid:
     xoffset: float = 0.0
     yoffset: float = 0.0
     rotation: float = 0.0
-    projection: Optional[str] = None
+    projection: str | None = None
     logger: npt.NDArray[np.integer] = field(default_factory=logger_factory, repr=False)
 
     def __post_init__(self):
@@ -62,9 +62,9 @@ class ModelGrid:
     @classmethod
     def from_modflow(
         cls,
-        file_or_dir: Union[str, PathLike],
-        model_name: Optional[str] = None,
-        projection: Optional[str] = None,
+        file_or_dir: str | PathLike,
+        model_name: str | None = None,
+        projection: str | None = None,
         logger=None,
     ):
         """Create from MODFLOW file or directory.
@@ -86,7 +86,7 @@ class ModelGrid:
         return cls.from_modelgrid(model.modelgrid, projection=projection, logger=logger)
 
     @classmethod
-    def from_modelgrid(cls, mg: Any, projection: Optional[str] = None, logger=None):
+    def from_modelgrid(cls, mg: Any, projection: str | None = None, logger=None):
         """Create from a modelgrid-like object.
 
         Parameters
@@ -131,7 +131,7 @@ class ModelGrid:
 
 
 def get_modflow_model(
-    file_or_dir: Union[str, PathLike], model_name: Optional[str] = None, logger=None
+    file_or_dir: str | PathLike, model_name: str | None = None, logger=None
 ):
     """Return model object from a str or Path to MODFLOW files.
 
@@ -173,7 +173,7 @@ def get_modflow_model(
             stacklevel=2,
         )
         return file_or_dir
-    if not isinstance(file_or_dir, (str, PathLike)):
+    if not isinstance(file_or_dir, str | PathLike):
         raise TypeError(f"expected str or PathLike object; found {type(file_or_dir)}")
 
     pth = Path(file_or_dir).resolve()
@@ -265,7 +265,7 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
     """  # noqa
     if logger is None:
         logger = get_logger(cls.__name__)
-    if isinstance(model, (str, PathLike)):
+    if isinstance(model, str | PathLike):
         pth = Path(model)
         logger.info(
             "creating grid from a MODFLOW model %s: %s",
