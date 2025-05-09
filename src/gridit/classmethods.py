@@ -3,7 +3,6 @@
 from decimal import Decimal
 from itertools import product
 from math import ceil, floor
-from typing import Optional, Union
 
 from gridit.logger import get_logger
 
@@ -14,9 +13,9 @@ snap_modes = ["full", "half"] + list("-".join(two) for two in product(_tb, _lr))
 
 def get_shape_top_left(
     bounds: tuple,
-    resolution: Union[float, Decimal],
-    buffer: Union[float, Decimal, tuple] = Decimal("0"),
-    snap: Union[str, tuple] = "full",
+    resolution: float | Decimal,
+    buffer: float | Decimal | tuple = Decimal("0"),
+    snap: str | tuple = "full",
 ):
     """Get shape and top-left coordinate to define a grid from bounds.
 
@@ -162,15 +161,15 @@ def get_shape_top_left(
 @classmethod
 def from_bbox(
     cls,
-    minx: Union[float, Decimal],
-    miny: Union[float, Decimal],
-    maxx: Union[float, Decimal],
-    maxy: Union[float, Decimal],
-    resolution: Union[float, Decimal],
+    minx: float | Decimal,
+    miny: float | Decimal,
+    maxx: float | Decimal,
+    maxy: float | Decimal,
+    resolution: float | Decimal,
     *,
-    buffer: Union[float, Decimal] = Decimal("0"),
-    snap: Union[str, tuple] = "full",
-    projection: Optional[str] = None,
+    buffer: float | Decimal = Decimal("0"),
+    snap: str | tuple = "full",
+    projection: str | None = None,
     logger=None,
 ):
     """Create grid information from a bounding box and resolution.
@@ -238,10 +237,10 @@ def from_bbox(
 def from_raster(
     cls,
     fname: str,
-    resolution: Union[float, Decimal, None] = None,
+    resolution: float | Decimal | None = None,
     *,
-    buffer: Union[float, Decimal, tuple] = Decimal("0"),
-    snap: Union[str, tuple] = "full",
+    buffer: float | Decimal | tuple = Decimal("0"),
+    snap: str | tuple = "full",
     logger=None,
 ):
     """Fetch grid information from a raster.
@@ -316,11 +315,11 @@ def from_raster(
 def from_vector(
     cls,
     fname: str,
-    resolution: Union[float, Decimal],
+    resolution: float | Decimal,
     *,
-    filter: Union[dict, str, None] = None,
-    buffer: Union[float, Decimal, tuple] = Decimal("0"),
-    snap: Union[str, tuple] = "full",
+    filter: dict | str | None = None,
+    buffer: float | Decimal | tuple = Decimal("0"),
+    snap: str | tuple = "full",
     layer=None,
     logger=None,
 ):
