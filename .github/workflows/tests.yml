@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         # pick lower and upper versions only
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.10", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +47,7 @@ jobs:
           uv run pytest -v --doctest-modules src
 
       - name: Run tests with older packages
-        if: matrix.python-version == '3.9'
+        if: matrix.python-version == '3.10'
         run: |
           uv pip uninstall netcdf4 xarray
           uv lock -P "affine<2.0" -P "pandas<2.0" -P "geopandas<1.0" -P "fiona<1.9" -P "shapely<2.0" -P "numpy<2.0" -P "flopy<3.5"
