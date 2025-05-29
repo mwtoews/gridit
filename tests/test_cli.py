@@ -1,6 +1,6 @@
 import pytest
 
-from .conftest import datadir, requires_pkg, run_cli, set_env
+from .common import datadir, requires_pkg, run_cli, set_env
 
 module_name = "gridit"
 mana_tif = datadir / "Mana.tif"

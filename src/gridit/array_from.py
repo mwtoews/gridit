@@ -1,5 +1,7 @@
 """Grid.array_from_* and mask_from_* methods."""
 
+import inspect
+
 import numpy as np
 
 from gridit.display import shorten
@@ -310,10 +312,6 @@ def array_from_vector(
         updated. Default False will only update cells whose center is within
         the polygon or line is on the render path. Ignored for points.
 
-    Notes
-    -----
-    TODO.
-
     Returns
     -------
     np.ma.array
@@ -327,68 +325,70 @@ def array_from_vector(
     if calc is not None:
         raise NotImplementedError("calc does nothing for now")
     self.logger.info("reading array from vector datasource: %s", fname)
-    vd = GridVectorData(self, fname, layer, attribute)
+    vd = GridVectorData.from_vector_file(self, fname, layer, attribute)
     return vd.rasterize_array(fill=fill, refine=refine, all_touched=all_touched)
 
 
 class GridVectorData:
-    def __init__(self, grid, fname, layer, attribute=None):
-        """Read vector data source and return data in dict."""
-        try:
-            import fiona
-        except ModuleNotFoundError:
-            import inspect
-
-            stack1 = inspect.stack()[1]
-            raise ModuleNotFoundError(f"{stack1.function} requires fiona")
-        from shapely.geometry import shape
-
+    def __init__(self, grid):
+        """Create a GridVectorData instance from a Grid object."""
         self.grid = grid
         self.logger = grid.logger
         self.shape = grid.shape
         self.resolution = grid.resolution
         self.transform = grid.transform
         self.bounds = grid.bounds
-        self.attribute = attribute
+
+    @classmethod
+    def from_vector_file(cls, grid, fname, layer, attribute=None):
+        """Read vector data source."""
+        try:
+            import fiona
+        except ModuleNotFoundError:
+            stack1 = inspect.stack()[1]
+            raise ModuleNotFoundError(f"{stack1.function} requires fiona")
+        from shapely.geometry import shape
+
+        obj = cls(grid)
+        obj.attribute = attribute
         if attribute is not None:
-            self.vals = []
-        self.geoms = []
-        self.geomds = []
+            obj.vals = []
+        obj.geoms = []
         layers = fiona.listlayers(fname)
         if layer is None:
             if len(layers) > 1:
-                self.logger.warning(
+                obj.logger.warning(
                     "choosing the first of %d layers: %s", len(layers), layers
                 )
                 layer = layers[0]
         elif layer not in layers:
             # show error message before fiona/GDAL raise error with "Null layer"
             if len(layers) == 1:
-                self.logger.error(
+                obj.logger.error(
                     "layer %r does not match vector source layer %r", layer, layers[0]
                 )
             else:
-                self.logger.error(
-                    "layer %r nout found in source layers: %r", layer, layers
+                obj.logger.error(
+                    "layer %r not found in source layers: %r", layer, layers
                 )
         with fiona.open(fname, "r", layer=layer) as ds:
-            self.geom_type = ds.schema["geometry"]
-            self.logger.info("processing %s geometry data", self.geom_type)
+            obj.geom_type = ds.schema["geometry"]
+            obj.logger.info("processing %s geometry data", obj.geom_type)
             ds_crs = ds.crs_wkt
             grid_crs = grid.projection
             do_transform = False
             if not grid_crs:
-                self.logger.info("geometries not transformed: grid has no projection")
+                obj.logger.info("geometries not transformed: grid has no projection")
             elif not ds_crs:
-                self.logger.info("geometries not transformed: vector has no projection")
+                obj.logger.info("geometries not transformed: vector has no projection")
             elif is_same_crs(grid_crs, ds_crs):
-                self.logger.info(
+                obj.logger.info(
                     "geometries not transformed: same projection: %s",
                     shorten(grid_crs, 60),
                 )
             else:
                 do_transform = True
-                self.logger.info(
+                obj.logger.info(
                     "geometries will be transformed from %s to %s",
                     shorten(ds_crs, 60),
                     shorten(grid_crs, 60),
@@ -397,47 +397,44 @@ class GridVectorData:
                 attributes = list(ds.schema["properties"].keys())
                 if attribute not in attributes:
                     raise KeyError(f"could not find {attribute!r} in {attributes}")
-                self.vdtype = ds.schema["properties"][attribute]
+                obj.vdtype = ds.schema["properties"][attribute]
 
             if do_transform:
                 from fiona.transform import transform_geom
                 from shapely.geometry import box, mapping
 
-                grid_box = box(*self.bounds)
+                grid_box = box(*obj.bounds)
                 # expand box slightly, because it might rotate with transform
-                buf = self.resolution * np.average(self.shape) * 0.15
+                buf = obj.resolution * np.average(obj.shape) * 0.15
                 grid_box_t = shape(
                     transform_geom(grid_crs, ds_crs, mapping(grid_box.buffer(buf)))
                 ).buffer(buf)
                 kwargs = {"bbox": grid_box_t.bounds}
-                self.logger.info("transforming features in bbox %s", grid_box_t.bounds)
+                obj.logger.info("transforming features in bbox %s", grid_box_t.bounds)
                 for _, feat in ds.items(**kwargs):
                     if attribute is not None:
                         val = feat["properties"][attribute]
                         if val is None:
                             continue
-                    geomd = transform_geom(ds_crs, grid_crs, feat["geometry"])
-                    geom = shape(geomd)
+                    geom = shape(transform_geom(ds_crs, grid_crs, feat["geometry"]))
                     if geom.is_empty or not grid_box.intersects(geom):
                         continue
-                    self.geomds.append(geomd)
-                    self.geoms.append(geom)
+                    obj.geoms.append(geom)
                     if attribute is not None:
-                        self.vals.append(val)
+                        obj.vals.append(val)
             else:
-                for _, feat in ds.items(bbox=self.bounds):
+                for _, feat in ds.items(bbox=obj.bounds):
                     if attribute is not None:
                         val = feat["properties"][attribute]
                         if val is None:
                             continue
-                    geomd = feat["geometry"]
-                    geom = shape(geomd)
+                    geom = shape(feat["geometry"])
                     if geom.is_empty:
                         continue
-                    self.geomds.append(geomd)
-                    self.geoms.append(geom)
+                    obj.geoms.append(geom)
                     if attribute is not None:
-                        self.vals.append(val)
+                        obj.vals.append(val)
+        return obj
 
     def __len__(self):
         return len(self.geoms)
@@ -464,8 +461,6 @@ class GridVectorData:
             from rasterio.dtypes import get_minimum_dtype
             from rasterio.enums import Resampling
         except ModuleNotFoundError:
-            import inspect
-
             stack1 = inspect.stack()[1]
             raise ModuleNotFoundError(f"{stack1.function} requires rasterio")
 
@@ -473,13 +468,39 @@ class GridVectorData:
             self.logger.warning("no valid geometry objects found")
             return self.empty_array(fill=fill)
 
-        if self.attribute is None:
-            geom_vals = [(g, 1) for g in self.geomds]
-            nodata = 0
-            dtype = "uint8"
-            resampling = Resampling.mode
+        if refine is None:
+            # Auto-evaluate refine and dtype based on geometry type
+            if self.attribute is None:
+                # If "attribute" is not provided:
+                #  - Point: refine == 1
+                #  - LineString: refine == 1
+                #  - Polygon: refine > 1
+                if "Polygon" in self.geom_type:
+                    refine = 5
+                else:
+                    refine = 1
+            else:
+                # If "attribute" is provided:
+                #  - Point: refine > 1
+                #  - LineString: refine > 1
+                #  - Polygon: refine > 1
+                refine = 5
+            msg = "selecting default"
         else:
-            geom_vals = zip(self.geomds, self.vals)
+            msg = "using"
+        self.logger.info("%s refine=%d for %s", msg, refine, self.geom_type)
+
+        if self.attribute is None:
+            geom_vals = [(g, 1) for g in self.geoms]
+            nodata = 0
+            if refine == 1 or "Point" in self.geom_type or "Line" in self.geom_type:
+                dtype = "uint8"
+                resampling = Resampling.mode
+            else:
+                dtype = "float32"
+                resampling = Resampling.average
+        else:
+            geom_vals = zip(self.geoms, self.vals)
             vals = np.array(self.vals)
             if self.vdtype.startswith("float"):
                 nodata = vals.max() * 10.0
@@ -499,14 +520,6 @@ class GridVectorData:
         ar = np.ma.empty(self.shape, dtype=dtype)
         ar.fill(nodata)
 
-        if refine is None:
-            refine = 1
-            if self.attribute is not None and "polygon" in self.geom_type.lower():
-                refine = 5
-            msg = "selecting default"
-        else:
-            msg = "using"
-        self.logger.info("%s refine=%d for %s", msg, refine, self.geom_type)
         if refine > 1:
             from rasterio.crs import CRS
             from rasterio.warp import reproject

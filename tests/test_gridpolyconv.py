@@ -5,7 +5,7 @@ import pytest
 
 from gridit import Grid, GridPolyConv
 
-from .conftest import datadir, has_pkg, requires_pkg, set_env
+from .common import datadir, get_str_list_count, has_pkg, requires_pkg, set_env
 
 if not (has_pkg("fiona") and has_pkg("rasterio")):
     pytest.skip(
@@ -47,9 +47,10 @@ def test_init(caplog):
         GridPolyConv([101, 102], ar[0].astype(float))
     with pytest.raises(ValueError, match="idx_ar ndim must be 2 or 3"):
         GridPolyConv([101, 102], ar[0, 0])
-    with caplog.at_level(logging.ERROR):
-        _ = GridPolyConv([101, 102], ar[0], ar)
-        assert "ignoring ar_count" in caplog.messages[-1]
+    caplog.set_level(logging.ERROR)
+    caplog.clear()
+    _ = GridPolyConv([101, 102], ar[0], ar)
+    assert get_str_list_count("ignoring ar_count", caplog.messages) == 1
     with pytest.raises(ValueError, match="ar_count must be specified"):
         GridPolyConv([101, 102], ar)
     with pytest.raises(ValueError, match="ar_count must be a numpy array"):
@@ -221,9 +222,10 @@ def test_waitaku2_500(caplog, waitaku2_index_values):
     exp_l = (
         "missing idx values: [2, 4, 37] or 'rid' values: [3046727, 3046737, 3048351]"
     )
-    with caplog.at_level(logging.INFO):
-        gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
-        assert exp_l in caplog.messages[-1]
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+    gpc = GridPolyConv.from_grid_vector(grid, waitaku2_shp, "rid", caching=0)
+    assert get_str_list_count(exp_l, caplog.messages)
     assert len(gpc.poly_idx) == 67
     assert gpc.poly_idx[:4] == (3046539, 3046727, 3046736, 3046737)
     assert gpc.poly_idx[-4:] == (3049674, 3049683, 3050099, 3050100)
@@ -337,15 +339,15 @@ def test_waitaku2_different_projection(waitaku2_index_values):
 def test_array_from_netcdf_errors(caplog, waitaku2_gpc_rid_2):
     gpc = waitaku2_gpc_rid_2
     # works without error/warning
-    with caplog.at_level(logging.WARNING):
-        res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx=0)
-        assert isinstance(res, dict)
-        assert len(caplog.messages) == 0
-        # now generate one warning
-        res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar")
-        assert isinstance(res, dict)
-        assert len(caplog.messages) == 1
-        assert "dataset has extra dimension 'run'" in caplog.messages[-1]
+    caplog.set_level(logging.WARNING)
+    caplog.clear()
+    res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx=0)
+    assert isinstance(res, dict)
+    assert len(caplog.messages) == 0
+    # now generate one warning
+    res = gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar")
+    assert isinstance(res, dict)
+    assert get_str_list_count("dataset has extra dimension 'run'", caplog.messages) == 1
     with pytest.raises(AttributeError, match="cannot find 'novar' in variable"):
         gpc.array_from_netcdf(waitaku2_nc, "rid", "novar")
     with pytest.raises(AttributeError, match="cannot find 'noidx' in variable"):

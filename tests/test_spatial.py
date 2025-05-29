@@ -3,7 +3,7 @@
 from gridit import Grid
 from gridit.spatial import flat_grid_intersect, is_same_crs
 
-from .conftest import requires_pkg
+from .common import requires_pkg
 
 
 def test_is_same_crs():

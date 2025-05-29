@@ -234,7 +234,7 @@ class GridPolyConv:
         if logger is None:
             logger = get_logger(__package__)
         logger.info("creating grid-polygon conversion from vector file")
-        vd = GridVectorData(grid, fname, layer, attribute)
+        vd = GridVectorData.from_vector_file(grid, fname, layer, attribute)
         if len(vd) == 0:
             raise ValueError("no features were found in grid extent")
         if "polygon" not in vd.geom_type.lower():
@@ -249,7 +249,7 @@ class GridPolyConv:
         poly_idx = list(vals_d.values())
         idx_vals = {v: k for k, v in vals_d.items()}
         idxs = list(map(idx_vals.get, vals))
-        geoms_idxs = list(zip(vd.geomds, idxs))
+        geoms_idxs = list(zip(vd.geoms, idxs))
         if caching:
 
             def find_cache(dirname, fname):
