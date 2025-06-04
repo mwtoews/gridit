@@ -6,7 +6,7 @@ import pytest
 
 from gridit import Grid
 
-from .conftest import datadir, requires_pkg
+from .common import datadir, get_str_list_count, requires_pkg
 
 modflow_dir = datadir / "modflow"
 
@@ -90,8 +90,7 @@ def test_grid_from_modflow_6(caplog):
 
     caplog.clear()
     grid = Grid.from_modflow(modflow_dir)
-    assert len(caplog.messages) == 1
-    assert "model_name should be specified" in caplog.messages[-1]
+    assert get_str_list_count("model_name should be specified", caplog.messages) == 1
     assert grid == expected
 
     caplog.clear()
@@ -101,8 +100,7 @@ def test_grid_from_modflow_6(caplog):
 
     caplog.clear()
     grid = Grid.from_modflow(modflow_dir / "h6.dis.grb", "unused", "EPSG:2193")
-    assert len(caplog.messages) == 1
-    assert "ignoring model_name" in caplog.messages[-1]
+    assert get_str_list_count("ignoring model_name", caplog.messages) == 1
     assert grid == expected_wp
 
 

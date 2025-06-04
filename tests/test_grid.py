@@ -4,7 +4,7 @@ import pytest
 
 from gridit import Grid
 
-from .conftest import requires_pkg
+from .common import requires_pkg
 
 
 @pytest.fixture

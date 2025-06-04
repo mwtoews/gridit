@@ -4,7 +4,7 @@ from hashlib import md5
 import numpy as np
 import pytest
 
-from .conftest import datadir, has_pkg, outdir, requires_pkg
+from .common import datadir, get_str_list_count, has_pkg, outdir, requires_pkg
 
 if has_pkg("rasterio"):
     import rasterio
@@ -28,19 +28,20 @@ nocrs_path = datadir / "nocrs.tif"
 def test_array_from_array(caplog):
     from rasterio.enums import Resampling
 
+    caplog.set_level(logging.INFO)
     coarse_grid = Grid(8, (3, 4))
     fine_grid = Grid(4, (6, 8))
     # same resolution
     in_ar = np.arange(12).reshape((3, 4))
-    with caplog.at_level(logging.INFO):
-        out_ar = coarse_grid.array_from_array(coarse_grid, in_ar)
-        assert "nearest resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = coarse_grid.array_from_array(coarse_grid, in_ar)
+    assert get_str_list_count("nearest resampling", caplog.messages) == 1
     np.testing.assert_array_equal(out_ar, in_ar)
     # fine to coarse
     in_ar = np.arange(12).reshape((3, 4))
-    with caplog.at_level(logging.INFO):
-        out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
-        assert "nearest resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
+    assert get_str_list_count("nearest resampling", caplog.messages) == 1
     np.testing.assert_array_equal(
         out_ar,
         np.ma.array(
@@ -54,9 +55,9 @@ def test_array_from_array(caplog):
             ]
         ),
     )
-    with caplog.at_level(logging.INFO):
-        out_ar = fine_grid.array_from_array(coarse_grid, in_ar.astype(float))
-        assert "bilinear resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = fine_grid.array_from_array(coarse_grid, in_ar.astype(float))
+    assert get_str_list_count("bilinear resampling", caplog.messages) == 1
     np.testing.assert_array_equal(
         out_ar,
         np.ma.array(
@@ -71,27 +72,26 @@ def test_array_from_array(caplog):
         ),
     )
     # specify resampling method
-    with caplog.at_level(logging.INFO):
-        out_ar = fine_grid.array_from_array(
-            coarse_grid, in_ar.astype(float), resampling="nearest"
-        )
-        assert "nearest resampling" in caplog.messages[-1]
-    with caplog.at_level(logging.INFO):
-        out_ar = fine_grid.array_from_array(
-            coarse_grid, in_ar.astype(float), resampling=Resampling.nearest
-        )
-        assert "nearest resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = fine_grid.array_from_array(
+        coarse_grid, in_ar.astype(float), resampling="nearest"
+    )
+    assert get_str_list_count("nearest resampling", caplog.messages) == 1
+    caplog.clear()
+    out_ar = fine_grid.array_from_array(
+        coarse_grid, in_ar.astype(float), resampling=Resampling.nearest
+    )
+    assert get_str_list_count("nearest resampling", caplog.messages) == 1
     # coarse to fine
     in_ar = np.arange(48).reshape((6, 8))
-    with caplog.at_level(logging.INFO):
-        out_ar = coarse_grid.array_from_array(fine_grid, in_ar)
-        assert "mode resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = coarse_grid.array_from_array(fine_grid, in_ar)
+    assert get_str_list_count("mode resampling", caplog.messages) == 1
     np.testing.assert_array_equal(
         out_ar, np.ma.array([[0, 2, 4, 6], [16, 18, 20, 22], [32, 34, 36, 38]])
     )
-    with caplog.at_level(logging.INFO):
-        out_ar = coarse_grid.array_from_array(fine_grid, in_ar.astype(float))
-        assert "average resampling" in caplog.messages[-1]
+    out_ar = coarse_grid.array_from_array(fine_grid, in_ar.astype(float))
+    assert get_str_list_count("average resampling", caplog.messages) == 1
     np.testing.assert_array_equal(
         out_ar,
         np.ma.array(
@@ -101,9 +101,9 @@ def test_array_from_array(caplog):
     # 3D fine to coarse
     R, C = np.mgrid[0:3, 0:4]
     in_ar = np.stack([R, C])
-    with caplog.at_level(logging.INFO):
-        out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
-        assert "nearest resampling" in caplog.messages[-1]
+    caplog.clear()
+    out_ar = fine_grid.array_from_array(coarse_grid, in_ar)
+    assert get_str_list_count("nearest resampling", caplog.messages) == 1
     np.testing.assert_array_equal(
         out_ar,
         np.ma.array(
@@ -283,11 +283,12 @@ def test_array_from_raster_same_grid_nan(grid_from_raster, fname):
 def test_array_from_raster_refine(caplog):
     from rasterio.enums import Resampling
 
+    caplog.set_level(logging.INFO)
     # use bilinear resampling method
     grid = Grid(5, (254, 244), (1749120.0, 5450360.0))
-    with caplog.at_level(logging.INFO):
-        ar = grid.array_from_raster(mana_dem_path)
-        assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
+    caplog.clear()
+    ar = grid.array_from_raster(mana_dem_path)
+    assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
     assert ar.shape == (254, 244)
     assert ar.dtype == "float32"
     assert ar.fill_value == -32767.0
@@ -296,15 +297,13 @@ def test_array_from_raster_refine(caplog):
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
     # specify resampling method via str or enum
     caplog.clear()
-    with caplog.at_level(logging.INFO):
-        ar = grid.array_from_raster(mana_dem_path, resampling="nearest")
-        assert sum("nearest resampling" in msg for msg in caplog.messages) == 1
+    ar = grid.array_from_raster(mana_dem_path, resampling="nearest")
+    assert sum("nearest resampling" in msg for msg in caplog.messages) == 1
     np.testing.assert_almost_equal(ar.min(), 1.2556334, 3)
     np.testing.assert_almost_equal(ar.max(), 103.65819, 3)
     caplog.clear()
-    with caplog.at_level(logging.INFO):
-        ar = grid.array_from_raster(mana_dem_path, resampling=Resampling.bilinear)
-        assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
+    ar = grid.array_from_raster(mana_dem_path, resampling=Resampling.bilinear)
+    assert sum("bilinear resampling" in msg for msg in caplog.messages) == 1
     np.testing.assert_almost_equal(ar.min(), 1.268, 3)
     np.testing.assert_almost_equal(ar.max(), 103.592, 3)
 
@@ -373,34 +372,23 @@ def grid_from_vector_all():
 def test_array_from_vector(
     write_files, caplog, grid_from_vector_all, attribute, refine, all_touched
 ):
-    with caplog.at_level(logging.INFO):
-        ar = grid_from_vector_all.array_from_vector(
-            mana_polygons_path,
-            attribute=attribute,
-            refine=refine,
-            all_touched=all_touched,
-        )
-        if refine is None:
-            # re-define default if None
-            refine = 1 if attribute is None else 5
-            assert (
-                sum(
-                    f"selecting default refine={refine} for Polygon" in msg
-                    for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
-        else:
-            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
-                caplog.messages
-            )
-            assert (
-                sum(
-                    f"using refine={refine} for Polygon" in msg
-                    for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+    ar = grid_from_vector_all.array_from_vector(
+        mana_polygons_path,
+        attribute=attribute,
+        refine=refine,
+        all_touched=all_touched,
+    )
+    if refine is None:
+        # re-define default if None
+        refine = 5
+        msg = f"selecting default refine={refine} for Polygon"
+        assert get_str_list_count(msg, caplog.messages) == 1
+    else:
+        assert get_str_list_count("selecting default", caplog.messages) == 0
+        msg = f"using refine={refine} for Polygon"
+        assert get_str_list_count(msg, caplog.messages) == 1
     if write_files:
         hash = md5(ar.tobytes()).hexdigest()[:7]
         fname = f"test_array_from_vector_{attribute}_{refine}_"
@@ -411,7 +399,10 @@ def test_array_from_vector(
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
     if attribute is None:
-        assert np.issubdtype(ar.dtype, np.integer)
+        if refine > 1:
+            assert ar.dtype == np.float32
+        else:
+            assert ar.dtype == np.uint8
         assert ar.fill_value == 0
         assert set(np.unique(ar).filled()) == {0, 1}
     else:
@@ -554,49 +545,59 @@ def test_array_from_vector_layer_allnull(grid_from_vector_all, refine, all_touch
 
 @requires_pkg("fiona", "rasterio")
 @pytest.mark.parametrize("res_shape", [(1000, (13, 8)), (2000, (7, 4))])
-@pytest.mark.parametrize("attribute", [None, "id"])
+@pytest.mark.parametrize("attribute", [None, "id", "val"])
 @pytest.mark.parametrize("refine", [None, 1, 5])
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_points(caplog, res_shape, attribute, refine, all_touched):
     resolution, shape = res_shape
     grid = Grid(resolution, shape, (1810000.0, 5878000.0))
-    with caplog.at_level(logging.INFO):
-        ar = grid.array_from_vector(
-            points_path, attribute=attribute, refine=refine, all_touched=all_touched
-        )
-        if refine is None:
-            refine = 1  # this is the default
-            assert (
-                sum(
-                    f"selecting default refine={refine} for Point" in msg
-                    for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
-        else:
-            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
-                caplog.messages
-            )
-            assert (
-                sum(
-                    f"using refine={refine} for Point" in msg for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+    ar = grid.array_from_vector(
+        points_path, attribute=attribute, refine=refine, all_touched=all_touched
+    )
+    if refine is None:
+        refine = 1 if attribute is None else 5
+        msg = f"selecting default refine={refine} for Point"
+        assert get_str_list_count(msg, caplog.messages) == 1
+    else:
+        assert get_str_list_count("selecting default", caplog.messages) == 0
+        msg = f"using refine={refine} for Point"
+        assert get_str_list_count(msg, caplog.messages) == 1
+    if refine == 1:
+        assert get_str_list_count("resampling method", caplog.messages) == 0
+    else:
+        method = "average" if attribute == "val" else "mode"
+        assert get_str_list_count(f"using {method} resampling", caplog.messages) == 1
     assert ar.shape == shape
     assert np.ma.isMaskedArray(ar)
-    assert np.issubdtype(ar.dtype, np.integer)
+    expected_dtype = np.integer
+    if attribute == "val":
+        expected_dtype = np.floating
+    assert np.issubdtype(ar.dtype, expected_dtype)
     assert ar.fill_value == 0
     ar_s = set(np.unique(ar).filled())
     if attribute is None:
         assert ar_s == {0, 1}
     else:
         all11 = set(range(11))
+        diff2000 = {4, 8, 1, 10}
+        if attribute == "val":
+            all11 = set(np.array(list(all11)) * 2.0)
+            diff2000 = set(np.array(list(diff2000)) * 2.0)
         if resolution == 2000:
             # when grid contains more than one point, values are not consistent
-            assert len(ar_s) == 9
-            assert ar_s.issubset(all11)
-            assert ar_s.issuperset(all11.difference({4, 8, 1, 10}))
+            # Also, note that integer "id" uses median and float "val" uses average
+            if attribute == "val":
+                if refine == 1:
+                    expected_ar_s = [0, 4, 6, 8, 10, 12, 14, 18, 20]
+                else:
+                    expected_ar_s = [0, 4, 6, 10, 11, 12, 14, 18]
+                assert ar_s == set(np.array(expected_ar_s, float))
+            else:
+                assert len(ar_s) == 9
+                assert ar_s.issubset(all11)
+                assert ar_s.issuperset(all11.difference(diff2000))
         else:
             assert ar_s == all11
     assert ar.mask.sum() == {1000: 94, 2000: 20}[resolution]
@@ -608,30 +609,19 @@ def test_array_from_vector_points(caplog, res_shape, attribute, refine, all_touc
 @pytest.mark.parametrize("all_touched", [False, True])
 def test_array_from_vector_lines(caplog, attribute, refine, all_touched):
     grid = Grid(250, (67, 64), (1803250.0, 5878500.0))
-    with caplog.at_level(logging.INFO):
-        ar = grid.array_from_vector(
-            lines_path, attribute=attribute, refine=refine, all_touched=all_touched
-        )
-        if refine is None:
-            refine = 1  # this is the default
-            assert (
-                sum(
-                    f"selecting default refine={refine} for 3D LineString" in msg
-                    for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
-        else:
-            assert sum("selecting default" in msg for msg in caplog.messages) == 0, (
-                caplog.messages
-            )
-            assert (
-                sum(
-                    f"using refine={refine} for 3D LineString" in msg
-                    for msg in caplog.messages
-                )
-                == 1
-            ), caplog.messages
+    caplog.set_level(logging.INFO)
+    caplog.clear()
+    ar = grid.array_from_vector(
+        lines_path, attribute=attribute, refine=refine, all_touched=all_touched
+    )
+    if refine is None:
+        refine = 1 if attribute is None else 5
+        msg = f"selecting default refine={refine} for 3D LineString"
+        assert get_str_list_count(msg, caplog.messages) == 1
+    else:
+        assert get_str_list_count("selecting default", caplog.messages) == 0
+        msg = f"using refine={refine} for 3D LineString"
+        assert get_str_list_count(msg, caplog.messages) == 1
     assert ar.shape == (67, 64)
     assert np.ma.isMaskedArray(ar)
     assert np.issubdtype(ar.dtype, np.integer)

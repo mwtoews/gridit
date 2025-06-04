@@ -10,7 +10,7 @@ from gridit.file import (
     float32_is_also_float64,
 )
 
-from .conftest import datadir
+from .common import datadir
 
 points_path = datadir / "waitaku2_points.shp"
 
@@ -294,7 +294,7 @@ def test_fiona_filter_collection():
     fiona = pytest.importorskip("fiona")
     expected_schema = {
         "geometry": "Point",
-        "properties": {"id": "int:10"},
+        "properties": {"id": "int:10", "val": "float:10.2"},
     }
     with fiona.open(points_path) as ds:
         flt = fiona_filter_collection(ds, filter={"id": 0})

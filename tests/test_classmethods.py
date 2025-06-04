@@ -5,7 +5,7 @@ import pytest
 from gridit import Grid
 from gridit.classmethods import get_shape_top_left
 
-from .conftest import datadir, requires_pkg
+from .common import datadir, requires_pkg
 
 # low-level method
 
