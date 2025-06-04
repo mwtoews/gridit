@@ -360,6 +360,12 @@ def test_array_from_raster_expand_nan_same_grid(fname):
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
 
 
+@requires_pkg("shapely", "rasterio")
+def test_array_from_geom_shapely():
+    grid = Grid.from_bbox(0, 0, 150, 100, 10)
+    del grid
+
+
 @pytest.fixture
 def grid_from_vector_all():
     return Grid.from_vector(mana_polygons_path, 100)

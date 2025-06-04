@@ -272,6 +272,47 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
     return np.full(ar.shape, ar.mask)
 
 
+def array_from_geom(
+    self,
+    geom,
+    *,
+    refine=None,
+    all_touched=False,
+):
+    """Return array from a Shapely geometry, list of geometries, or GeoSeries.
+
+    Returned values are float values between 0 and 1, depending on overlap.
+
+    Parameters
+    ----------
+    geom : shapely geometry, list of geometries, or geopandas.GeoSeries
+        One or more input geometries.
+    refine : int, optional
+        Controls level of pre-processing used to approximate details
+        from polygon vector sources. Ignored for points.
+        If one, use default (coarse) rasterizing at grid resolution.
+        If greater than 1, refine each dimension by a factor.
+        Default will determine an appropriate refine value based on
+        geometry type.
+    all_touched : bool, default False
+        If True, all grid cells touched by polygon or line geometries will be
+        updated. Default False will only update cells whose center is within
+        the polygon or line is on the render path. Ignored for points.
+
+    Returns
+    -------
+    np.array
+
+    Raises
+    ------
+    ModuleNotFoundError
+        If fiona and/or rasterio is not installed.
+
+    """
+    vd = GridVectorData.from_geom(self, geom)
+    return vd.rasterize_array(refine=refine, all_touched=all_touched).data
+
+
 def array_from_vector(
     self,
     fname: str,
@@ -338,6 +379,67 @@ class GridVectorData:
         self.resolution = grid.resolution
         self.transform = grid.transform
         self.bounds = grid.bounds
+
+    @classmethod
+    def from_geom(cls, grid, geom):
+        """Create grid vector data from a geometry or list of geometries."""
+        obj = cls(grid)
+        obj.attribute = None
+
+        if isinstance(geom, list):
+            obj.geoms = geom
+            ar = np.array(geom, dtype=object)
+            try:
+                geom_type = np.unique(np.vectorize(lambda g: g.geom_type)(ar))
+            except AttributeError:
+                msg = (
+                    f"'geom' for {inspect.stack()[1]} must be a list of "
+                    "geometry-like objects"
+                )
+                raise TypeError(msg)
+            if len(geom_type) == 1:
+                obj.geom_type = geom_type[0]
+            else:
+                obj.geom_type = "GeometryCollection"
+            return obj
+
+        if not hasattr(geom, "geom_type"):
+            stack1 = inspect.stack()[1]
+            msg = f"'geom' for {stack1.function} must be geometry-like or list"
+            raise TypeError(msg)
+        if isinstance(geom.geom_type, str):
+            # singular shapely geometry
+            obj.geoms = [geom]
+            obj.geom_type = geom.geom_type
+            return obj
+
+        # geopandas' GeoSeries or GeometryArray
+        if hasattr(geom, "crs") and hasattr(geom, "to_crs"):
+            geom_crs = geom.crs
+            grid_crs = grid.projection
+            if not grid_crs:
+                obj.logger.info("geometries not transformed: grid has no projection")
+            elif not geom_crs:
+                obj.logger.info("geometries not transformed: vector has no projection")
+            elif is_same_crs(grid_crs, geom_crs):
+                obj.logger.info(
+                    "geometries not transformed: same projection: %s",
+                    shorten(grid_crs, 60),
+                )
+            else:
+                obj.logger.info(
+                    "geometries will be transformed from %s to %s",
+                    shorten(geom_crs, 60),
+                    shorten(grid_crs, 60),
+                )
+                geom = geom.to_crs(grid_crs)
+
+        obj.geoms = geom
+        if len(geom_type := np.unique(geom.geom_type)) == 1:
+            obj.geom_type = geom_type[0]
+        else:
+            obj.geom_type = "GeometryCollection"
+        return obj
 
     @classmethod
     def from_vector_file(cls, grid, fname, layer, attribute=None):
