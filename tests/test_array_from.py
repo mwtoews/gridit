@@ -360,6 +360,88 @@ def test_array_from_raster_expand_nan_same_grid(fname):
     np.testing.assert_almost_equal(ar.max(), 12.3, 3)
 
 
+@requires_pkg("shapely", "rasterio")
+def test_array_from_geom():
+    import shapely
+    from shapely import wkt
+
+    grid = Grid.from_bbox(0, 0, 150, 100, 10)
+
+    ar = grid.array_from_geom(wkt.loads("POINT(10 31)"))
+    assert ar.dtype == np.uint8
+    assert ar.fill_value == 0
+    assert ar.sum() == 1
+    assert ar[6, 1] == 1
+
+    ar = grid.array_from_geom(wkt.loads("LINESTRING(10 10, 30 90, 140 10)"))
+    assert ar.dtype == np.uint8
+    assert ar.sum() == 20
+
+    ar = grid.array_from_geom(wkt.loads("POLYGON((10 10, 110 10, 110 30, 10 10))"))
+    assert ar.dtype == np.float32
+    assert ar.fill_value == 0.0
+    assert ar.sum() == pytest.approx(9.799999)
+    assert (ar == 1).sum() == 5
+
+    mp = wkt.loads(
+        "MULTIPOLYGON(((10 10, 110 10, 110 30, 10 10)),((10 30, 10 50, 111 50, 10 30)))"
+    )
+    ar = grid.array_from_geom(mp)
+    assert ar.dtype == np.float32
+    assert ar.sum() == pytest.approx(20)
+    assert (ar == 1).sum() == 10
+
+    # not sure 100% best method for GeometryCollection
+    gc = wkt.loads(
+        "GEOMETRYCOLLECTION(POLYGON((10 10, 110 10, 110 30, 10 10)),POINT(10 31))"
+    )
+    ar = grid.array_from_geom(gc)
+    assert ar.dtype == np.uint8
+    assert ar.sum() == 10
+    assert ar[6, 1] == 1
+
+    ar = grid.array_from_geom(gc, refine=5)
+    assert ar.dtype == np.float32
+    assert ar.sum() == pytest.approx(9.84)
+    assert ar[6, 1] == pytest.approx(0.04)  # 1 / 25
+    assert (ar == 1).sum() == 5
+
+    # test list
+    ar = grid.array_from_geom([])
+    assert ar.dtype == np.uint8
+    assert ar.mask.all()
+
+    ar = grid.array_from_geom([wkt.loads("POINT(10 31)")])
+    assert ar.dtype == np.uint8
+    assert ar.sum() == 1
+    assert ar[6, 1] == 1
+
+    ar = grid.array_from_geom([wkt.loads("POINT(10 31)"), gc])
+    assert ar.dtype == np.uint8
+    assert ar.sum() == 10
+    assert ar[6, 1] == 1
+
+    ar = grid.array_from_geom(list(mp.geoms))
+    assert ar.dtype == np.float32
+    assert ar.sum() == pytest.approx(20)
+    assert (ar == 1).sum() == 10
+
+    # errors
+    with pytest.raises(TypeError, match="'geom' for array_from_geom must be shapely-l"):
+        grid.array_from_geom(None)
+
+    with pytest.raises(TypeError, match="'geom' for array_from_geom must be a list of"):
+        grid.array_from_geom([wkt.loads("POINT(10 31)"), None])
+
+    if int(shapely.__version__.split(".", 1)[0]) >= 2:
+        # check shapely 2 geometry array
+        ar = grid.array_from_geom(shapely.from_wkt(["POINT(10 31)"]))
+        assert ar.dtype == np.uint8
+        assert ar.fill_value == 0
+        assert ar.sum() == 1
+        assert ar[6, 1] == 1
+
+
 @pytest.fixture
 def grid_from_vector_all():
     return Grid.from_vector(mana_polygons_path, 100)

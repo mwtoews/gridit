@@ -272,6 +272,47 @@ def mask_from_raster(self, fname: str, bidx: int = 1):
     return np.full(ar.shape, ar.mask)
 
 
+def array_from_geom(
+    self,
+    geom,
+    *,
+    refine=None,
+    all_touched=False,
+):
+    """Return array from a Shapely geometry.
+
+    Returned values are float values between 0 and 1, depending on overlap.
+
+    Parameters
+    ----------
+    geom : shapely geometry, list or array-like of geometries
+        One or more input geometries.
+    refine : int, optional
+        Controls level of pre-processing used to approximate details
+        from polygon vector sources. Ignored for points.
+        If one, use default (coarse) rasterizing at grid resolution.
+        If greater than 1, refine each dimension by a factor.
+        Default will determine an appropriate refine value based on
+        geometry type.
+    all_touched : bool, default False
+        If True, all grid cells touched by polygon or line geometries will be
+        updated. Default False will only update cells whose center is within
+        the polygon or line is on the render path. Ignored for points.
+
+    Returns
+    -------
+    np.ma.array
+
+    Raises
+    ------
+    ModuleNotFoundError
+        If rasterio is not installed.
+
+    """
+    vd = GridVectorData.from_geom(self, geom)
+    return vd.rasterize_array(refine=refine, all_touched=all_touched)
+
+
 def array_from_vector(
     self,
     fname: str,
@@ -331,6 +372,42 @@ class GridVectorData:
         self.resolution = grid.resolution
         self.transform = grid.transform
         self.bounds = grid.bounds
+
+    @classmethod
+    def from_geom(cls, grid, geom):
+        """Create grid vector data from a shapely-like geometry."""
+        if hasattr(geom, "tolist"):
+            # convert array-like to list
+            geom = geom.tolist()
+        if isinstance(geom, list):
+            # check each item is a geometry
+            geom_type_s = set()
+            for item in geom:
+                geom_type = getattr(item, "geom_type", None)
+                geom_type_s.add(geom_type)
+                if not isinstance(geom_type, str):
+                    stack1 = inspect.stack()[1]
+                    raise TypeError(
+                        f"'geom' for {stack1.function} must be a list of "
+                        "shapely-like geometry objects"
+                    )
+            if len(geom_type_s) == 1:
+                geom_type = geom_type_s.pop()
+            else:
+                geom_type = "GeometryCollection"
+        else:
+            # single geometry
+            geom_type = getattr(geom, "geom_type", None)
+            if not isinstance(geom_type, str):
+                stack1 = inspect.stack()[1]
+                msg = f"'geom' for {stack1.function} must be shapely-like geometry"
+                raise TypeError(msg)
+            geom = [geom]
+        obj = cls(grid)
+        obj.attribute = None
+        obj.geoms = geom
+        obj.geom_type = geom_type
+        return obj
 
     @classmethod
     def from_vector_file(cls, grid, fname, layer, attribute=None):
