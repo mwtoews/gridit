@@ -132,12 +132,6 @@ Examples:
             ),
         )
         array_from_vector_group.add_argument(
-            "--array-from-vector-calc",
-            metavar="CALC",
-            default=None,
-            help="Not implemented yet.",
-        )
-        array_from_vector_group.add_argument(
             "--array-from-vector-fill",
             metavar="FILL",
             default=0,
@@ -486,7 +480,6 @@ Examples:
                 fname,
                 layer=layer,
                 attribute=args.array_from_vector_attribute,
-                calc=args.array_from_vector_calc,
                 fill=args.array_from_vector_fill,
                 refine=args.array_from_vector_refine,
                 all_touched=args.all_touched,
