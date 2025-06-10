@@ -278,7 +278,6 @@ def array_from_vector(
     *,
     layer=None,
     attribute=None,
-    calc=None,
     fill=0,
     refine=None,
     all_touched=False,
@@ -295,12 +294,8 @@ def array_from_vector(
         The integer index or name of a layer in a multi-layer dataset.
     attribute : str, optional
         Name of attribute to rasterize.
-        This option is mutually exclusive with ``calc``.
-    calc : str, optional
-        Not implemented.
-        This option is mutually exclusive with ``attribute``.
     fill : float or int, default 0
-        Fill value, only used where polygon does not cover unmasked grid.
+        Fill value, only used where geometries do not cover unmasked grid.
     refine : int, optional
         Controls level of pre-processing used to approximate details
         from polygon vector sources. Ignored for points.
@@ -322,8 +317,6 @@ def array_from_vector(
         If fiona and/or rasterio is not installed.
 
     """
-    if calc is not None:
-        raise NotImplementedError("calc does nothing for now")
     self.logger.info("reading array from vector datasource: %s", fname)
     vd = GridVectorData.from_vector_file(self, fname, layer, attribute)
     return vd.rasterize_array(fill=fill, refine=refine, all_touched=all_touched)
@@ -491,14 +484,20 @@ class GridVectorData:
         self.logger.info("%s refine=%d for %s", msg, refine, self.geom_type)
 
         if self.attribute is None:
+            # Rasterize 0 and 1 values
+            line_or_point = "Point" in self.geom_type or "Line" in self.geom_type
+            rasterize_fill = 0
             geom_vals = [(g, 1) for g in self.geoms]
-            nodata = 0
-            if refine == 1 or "Point" in self.geom_type or "Line" in self.geom_type:
+            if refine == 1 or line_or_point:
                 dtype = "uint8"
                 resampling = Resampling.mode
             else:
                 dtype = "float32"
                 resampling = Resampling.average
+            if line_or_point:
+                nodata = 0
+            else:
+                nodata = 2  # neither 0 or 1
         else:
             geom_vals = zip(self.geoms, self.vals)
             vals = np.array(self.vals)
@@ -513,12 +512,10 @@ class GridVectorData:
             dtype = get_minimum_dtype(np.append(vals, nodata))
             if dtype == "float32":
                 dtype = "float64"
+            rasterize_fill = nodata
 
-        dtype_conv = np.dtype(dtype).type
-        nodata = dtype_conv(nodata)
-        fill = dtype_conv(fill)
         ar = np.ma.empty(self.shape, dtype=dtype)
-        ar.fill(nodata)
+        ar.fill(rasterize_fill)
 
         if refine > 1:
             from rasterio.crs import CRS
@@ -526,22 +523,29 @@ class GridVectorData:
 
             fine_transform = self.transform * Affine.scale(1.0 / refine)
             fine_shape = tuple(n * refine for n in self.shape)
-            self.logger.info("rasterizing features to %s fine array", dtype)
+            self.logger.info(
+                "rasterizing features to %s fine array with fill=%s and all_touched=%s",
+                dtype,
+                rasterize_fill,
+                all_touched,
+            )
             fine_ar = features.rasterize(
                 geom_vals,
                 fine_shape,
                 transform=fine_transform,
-                fill=nodata,
+                fill=rasterize_fill,
                 dtype=dtype,
                 all_touched=all_touched,
             )
+            dtype_conv = np.dtype(dtype).type
+            nodata = dtype_conv(nodata)
             # TODO: is there a better catch-all projection?
             ds_crs = CRS.from_epsg(3857)
             self.logger.info(
-                "reprojecting from fine to coarse array using "
-                "%s resampling method and all_touched=%s",
+                "reprojecting from fine to coarse array using %s resampling method "
+                "and nodata=%s",
                 resampling.name,
-                all_touched,
+                nodata,
             )
             _ = reproject(
                 fine_ar,
@@ -556,8 +560,9 @@ class GridVectorData:
             )
         else:
             self.logger.info(
-                "rasterizing features to %s array with all_touched=%s",
+                "rasterizing features to %s array with fill=%s and all_touched=%s",
                 dtype,
+                rasterize_fill,
                 all_touched,
             )
             _ = features.rasterize(
@@ -565,10 +570,11 @@ class GridVectorData:
                 self.shape,
                 out=ar.data,
                 transform=self.transform,
+                fill=rasterize_fill,
                 dtype=dtype,
                 all_touched=all_touched,
             )
-        is_nodata = ar.data == nodata
+        is_nodata = ar.data == rasterize_fill
         if is_nodata.any():
             ar.data[is_nodata] = fill
             ar.mask |= is_nodata

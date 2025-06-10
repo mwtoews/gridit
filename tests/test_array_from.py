@@ -399,12 +399,17 @@ def test_array_from_vector(
     assert ar.shape == (24, 18)
     assert np.ma.isMaskedArray(ar)
     if attribute is None:
+        uvals = set(np.unique(ar).filled().tolist())
         if refine > 1:
             assert ar.dtype == np.float32
+            if refine == 2:
+                assert uvals == {0.0, 0.25, 0.5, 0.75, 1.0}
+            else:
+                assert len(uvals) > 5
         else:
             assert ar.dtype == np.uint8
+            assert uvals == {0, 1}
         assert ar.fill_value == 0
-        assert set(np.unique(ar).filled()) == {0, 1}
     else:
         assert np.issubdtype(ar.dtype, np.floating)
         assert ar.fill_value == 0.0
