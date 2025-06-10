@@ -13,6 +13,20 @@ def test_is_same_crs():
     assert not is_same_crs("this is one", "quite different, really")
 
 
+@requires_pkg("pyproj")
+def test_is_same_crs_pyproj():
+    from pyproj import CRS
+
+    crs1 = CRS.from_epsg(2193)
+    crs2 = CRS.from_epsg(2194)
+    assert is_same_crs(crs1, crs1)
+    assert not is_same_crs(crs1, crs2)
+    assert is_same_crs(crs1, "EPSG:2193")
+    assert not is_same_crs(crs1, "EPSG:2194")
+    assert is_same_crs("EPSG:2193", crs1)
+    assert not is_same_crs("EPSG:2194", crs1)
+
+
 @requires_pkg("shapely")
 def test_flat_grid_intersect():
     # exact overlap, same resolution
