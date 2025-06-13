@@ -313,6 +313,50 @@ def array_from_geom(
     return vd.rasterize_array(refine=refine, all_touched=all_touched)
 
 
+def array_from_geopandas(
+    self,
+    gpd,
+    *,
+    attribute=None,
+    fill=0,
+    refine=None,
+    all_touched=False,
+):
+    """Return array from a geopandas GeoSeries, GeoDataFrame or GeometryArray.
+
+    Parameters
+    ----------
+    gpd : geopandas GeoSeries, GeoDataFrame, or GeometryArray object
+    attribute : str, optional
+        Column name of GeoDataFrame object to rasterize.
+    fill : float or int, default 0
+        Fill value, only used where geometries do not cover unmasked grid.
+    refine : int, optional
+        Controls level of pre-processing used to approximate details
+        from polygon vector sources. Ignored for points.
+        If one, use default (coarse) rasterizing at grid resolution.
+        If greater than 1, refine each dimension by a factor.
+        Default will determine an appropriate refine value based on
+        geometry type.
+    all_touched : bool, default False
+        If True, all grid cells touched by polygon or line geometries will be
+        updated. Default False will only update cells whose center is within
+        the polygon or line is on the render path. Ignored for points.
+
+    Returns
+    -------
+    np.ma.array
+
+    Raises
+    ------
+    ModuleNotFoundError
+        If rasterio is not installed.
+
+    """
+    vd = GridVectorData.from_geopandas(self, gpd, attribute)
+    return vd.rasterize_array(fill=fill, refine=refine, all_touched=all_touched)
+
+
 def array_from_vector(
     self,
     fname: str,
@@ -410,6 +454,52 @@ class GridVectorData:
         return obj
 
     @classmethod
+    def from_geopandas(cls, grid, gpd, attribute=None):
+        """Create grid vector data from a geopandas object."""
+        obj = cls(grid)
+        if hasattr(gpd, "geometry"):
+            obj.geoms = gpd.geometry
+        elif hasattr(gpd, "to_numpy"):  # GeometryArray
+            obj.geoms = gpd.to_numpy()
+        else:
+            stack1 = inspect.stack()[1]
+            msg = f"'gpd' for {stack1.function} does not seem to be a geopandas object"
+            raise TypeError(msg)
+
+        if hasattr(gpd, "crs") and hasattr(gpd, "to_crs"):
+            # Check if it needs to be re-projected to match grid
+            gpd_crs = gpd.crs
+            grid_crs = grid.projection
+            if not grid_crs:
+                obj.logger.info("geometries not transformed: grid has no projection")
+            elif not gpd_crs:
+                obj.logger.info("geometries not transformed: vector has no projection")
+            elif is_same_crs(grid_crs, gpd_crs):
+                obj.logger.debug(
+                    "geometries not transformed: same projection: %s",
+                    shorten(grid_crs, 60),
+                )
+            else:
+                obj.logger.info(
+                    "geometries will be transformed from %s to %s",
+                    shorten(gpd_crs, 60),
+                    shorten(grid_crs, 60),
+                )
+                gpd = gpd.to_crs(grid_crs)
+        obj.attribute = attribute
+        if attribute is not None:
+            try:
+                obj.vals = gpd[attribute]
+            except (IndexError, KeyError):
+                raise IndexError(f"'gdb' does not have attribute '{attribute}'")
+            obj.vdtype = str(gpd[attribute].dtype)
+        if len(geom_type := np.unique(gpd.geom_type)) == 1:
+            obj.geom_type = geom_type[0]
+        else:
+            obj.geom_type = "GeometryCollection"
+        return obj
+
+    @classmethod
     def from_vector_file(cls, grid, fname, layer, attribute=None):
         """Read vector data source."""
         try:
@@ -452,7 +542,7 @@ class GridVectorData:
             elif not ds_crs:
                 obj.logger.info("geometries not transformed: vector has no projection")
             elif is_same_crs(grid_crs, ds_crs):
-                obj.logger.info(
+                obj.logger.debug(
                     "geometries not transformed: same projection: %s",
                     shorten(grid_crs, 60),
                 )

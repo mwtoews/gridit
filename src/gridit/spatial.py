@@ -1,6 +1,7 @@
 """Spatial utilities module."""
 
 import re
+from typing import Any
 
 import numpy as np
 
@@ -12,13 +13,19 @@ __all__ = [
 ]
 
 
-def is_same_crs(wkt1: str, wkt2: str) -> bool:
-    """Determine if two CRS strings (as WKT) are nearly the same.
+def is_same_crs(crs1: Any, crs2: Any) -> bool:
+    """Determine if two CRS as pyproj objects or WKT strings are nearly the same.
 
     First try to compare simple EPSG codes. Otherwise, use
     SequenceMatcher from difflib to determine if ratio is greater than 2/3.
     """
-    if wkt1.upper() == wkt2.upper():
+    # use pyproj's methods with CRS objects and/or WKT strings
+    if hasattr(crs1, "equals"):
+        return crs1.equals(crs2)
+    if hasattr(crs2, "equals"):
+        return crs2.equals(crs1)
+
+    if crs1.upper() == crs2.upper():
         return True
 
     def epsg_code(wkt):
@@ -26,14 +33,14 @@ def is_same_crs(wkt1: str, wkt2: str) -> bool:
             return match.groups()[0]
         return None
 
-    code1 = epsg_code(wkt1)
-    code2 = epsg_code(wkt2)
+    code1 = epsg_code(crs1)
+    code2 = epsg_code(crs2)
     if code1 is not None and code2 is not None:
         return code1 == code2
 
     from difflib import SequenceMatcher
 
-    ratio = SequenceMatcher(None, wkt2, wkt1).ratio()
+    ratio = SequenceMatcher(None, crs2, crs1).ratio()
     return ratio > 2 / 3.0
 
 

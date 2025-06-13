@@ -32,6 +32,7 @@ class Grid:
     from gridit.array_from import (
         array_from_array,
         array_from_geom,
+        array_from_geopandas,
         array_from_raster,
         array_from_vector,
         mask_from_raster,

@@ -437,9 +437,78 @@ def test_array_from_geom():
         # check shapely 2 geometry array
         ar = grid.array_from_geom(shapely.from_wkt(["POINT(10 31)"]))
         assert ar.dtype == np.uint8
+        assert ar.sum() == 1
+        assert ar[6, 1] == 1
+
+
+@requires_pkg("geopandas", "rasterio")
+def test_array_from_geopandas_errors():
+    import geopandas
+    from shapely import wkt
+
+    grid = Grid.from_bbox(0, 0, 150, 100, 10)
+
+    msg = "gpd' for array_from_geopandas does not seem to be a geopandas object"
+    with pytest.raises(TypeError, match=msg):
+        grid.array_from_geopandas(1)
+    with pytest.raises(TypeError, match=msg):
+        grid.array_from_geopandas([1])
+    with pytest.raises(TypeError, match=msg):
+        grid.array_from_geopandas(wkt.loads("POINT(10 31)"))
+
+    msg = "'gdb' does not have attribute 'v'"
+    ga = geopandas.points_from_xy([10], [31])
+    with pytest.raises(IndexError, match=msg):
+        grid.array_from_geopandas(ga, attribute="v")
+    gs = geopandas.GeoSeries(ga)
+    with pytest.raises(IndexError, match=msg):
+        grid.array_from_geopandas(gs, attribute="v")
+    gdf = geopandas.GeoDataFrame({"x": [1.0]}, geometry=gs)
+    with pytest.raises(IndexError, match=msg):
+        grid.array_from_geopandas(gdf, attribute="v")
+
+
+@requires_pkg("geopandas", "rasterio")
+@pytest.mark.parametrize("crs", [None, 2193])
+def test_array_from_geopandas_no_attribute(crs):
+    import geopandas
+
+    if crs:
+        projection = f"EPSG:{crs}"
+    else:
+        projection = None
+    grid = Grid.from_bbox(0, 0, 150, 100, 10, projection=projection)
+
+    def check(ar):
+        assert ar.dtype == np.uint8
         assert ar.fill_value == 0
         assert ar.sum() == 1
         assert ar[6, 1] == 1
+
+    ga = geopandas.points_from_xy([10], [31], crs=crs)
+    check(grid.array_from_geopandas(ga))
+
+    gs = geopandas.GeoSeries(ga)
+    check(grid.array_from_geopandas(gs))
+
+    gdf = geopandas.GeoDataFrame({"v": [1.0]}, geometry=gs)
+    check(grid.array_from_geopandas(gdf))
+
+
+@requires_pkg("geopandas", "rasterio")
+def test_array_from_geopandas_attribute():
+    import geopandas
+
+    grid = Grid.from_bbox(0, 0, 150, 100, 10)
+
+    gdf = geopandas.GeoDataFrame(
+        {"v": [1.1]}, geometry=geopandas.points_from_xy([10], [31])
+    )
+    ar = grid.array_from_geopandas(gdf, attribute="v")
+    assert ar.dtype == np.float64
+    assert ar.fill_value == 0.0
+    assert ar.sum() == 1.1
+    assert ar[6, 1] == 1.1
 
 
 @pytest.fixture
