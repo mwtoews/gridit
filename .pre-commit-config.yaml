@@ -3,7 +3,7 @@ ci:
 exclude: \.grb$
 repos:
   - repo: https://github.com/astral-sh/uv-pre-commit
-    # uv version.
+    # uv version
     rev: 0.7.13
     hooks:
       # Update the uv lockfile
@@ -18,7 +18,7 @@ repos:
     rev: v0.12.0
     hooks:
       # Run the linter
-      - id: ruff
+      - id: ruff-check
         args: [ --fix ]
       # Run the formatter
       - id: ruff-format
