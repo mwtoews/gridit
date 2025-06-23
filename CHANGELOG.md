@@ -6,6 +6,15 @@ All notable changes to this project will be documented in this file.
 ### Changed
 ### Fixed
 
+## [0.8] - 2025-06-23
+### Added
+- Add `Grid.array_from_geom()` method for Shapely objects (#60).
+- Add `Grid.array_from_geopandas()` method for GeoPandas objects (#61).
+### Changed
+- Drop Python 3.9; set minimum Python 3.10 (#57).
+- Refactor `array_from_vector()` method behaviour (#58).
+- Refactor `array_from_vector()` method for Polygon without attribute (#59).
+
 ## [0.7] - 2025-01-30
 ### Added
 - Add `snap` parameter to allow different snap modes used for grid size and offsets (#38).
@@ -56,7 +65,6 @@ All notable changes to this project will be documented in this file.
 - Add `array_to_array` function to resample numpy arrays.
 - Add write outputs to cli, including `--write-image`, `--write-raster` and `--write-text`.
 - Add `Grid.from_modflow` and `mask_from_modflow` functions.
-
 ### Changed
 - Better missing data handling with `array_from_vector` function.
 - Remove `--array-from-raster-bidx`, use `--array-from-raster FILE[:BIDX]` instead.
@@ -72,7 +80,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.7...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.8...HEAD
+[0.8]: https://github.com/mwtoews/gridit/compare/0.7...0.8
 [0.7]: https://github.com/mwtoews/gridit/compare/0.6...0.7
 [0.6]: https://github.com/mwtoews/gridit/compare/0.5...0.6
 [0.5]: https://github.com/mwtoews/gridit/compare/0.4...0.5
