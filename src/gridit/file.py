@@ -25,18 +25,26 @@ def float32_is_also_float64(val):
     return val64 == val6432
 
 
-def write_raster(grid, array, fname, driver=None, **kwargs):
+def write_raster(
+    grid, array, fname, driver=None, band_attrs: dict[str, list] = {}, **kwargs
+):
     """Write array to a raster file format.
 
     Parameters
     ----------
     grid : Grid
     array : array_like
-        Array to write; must have 2-dimensions that match shape.
+        Array to write. Arrays with 2-dimensions are written to a single band,
+        whereas 3-dimensions are multiband, with the band index along the
+        first dimension.
     fname : str or PathLike
         Output file to write.
     driver : str, optional
         Raster driver. Default None will determine driver from fname.
+    band_attrs : dict, optional
+        If array has 3-dimensions (where band index is the first dimension),
+        optionally provide one or more band attributes as a list.
+        For example ``{"depth": [0.0, 10.0, 20.0]}`` for three bands.
     **kwargs : dict, optional
         Other driver-specific parameters that will be interpreted by the
         GDAL library as raster creation options.
@@ -51,10 +59,12 @@ def write_raster(grid, array, fname, driver=None, **kwargs):
         import rasterio
     except ModuleNotFoundError:
         raise ModuleNotFoundError("array_from_vector requires rasterio")
-    if array.ndim != 2:
-        raise ValueError("array must have two-dimensions")
-    if array.shape != grid.shape:
-        raise ValueError("array must have same shape " + str(grid.shape))
+    if array.ndim not in [2, 3]:
+        raise ValueError(f"array must have 2- or 3-dimensions; found {array.ndim}")
+    if array.shape[-2:] != grid.shape:
+        raise ValueError(
+            f"expected array.shape[-2:] {grid.shape}, found {array.shape[-2:]}"
+        )
     grid.logger.info("writing raster file: %s", fname)
     if driver is None:
         from rasterio.drivers import driver_from_extension
@@ -67,12 +77,15 @@ def write_raster(grid, array, fname, driver=None, **kwargs):
     else:
         kwargs = {}
         kwargs_lnames = []
+    if array.ndim == 2:
+        array = array[np.newaxis]
+    count, height, width = array.shape
     kwargs.update(
         {
             "driver": driver,
-            "width": grid.shape[1],
-            "height": grid.shape[0],
-            "count": 1,
+            "width": width,
+            "height": height,
+            "count": count,
             "crs": grid.projection,
             "transform": grid.transform,
         }
@@ -99,8 +112,15 @@ def write_raster(grid, array, fname, driver=None, **kwargs):
                 array.nodata = nodata
         kwargs["nodata"] = nodata = array.dtype.type(nodata)
         array = array.filled(nodata)
+    # Transform band_attrs into {bidx: {attr}}
+    bidx_tags = {
+        idx + 1: {key: str(val[idx]) for key, val in band_attrs.items()}
+        for idx in range(count)
+    }
     with rasterio.open(fname, "w", **kwargs) as ds:
-        ds.write(array, 1)
+        ds.write(array)
+        for bidx, tags in bidx_tags.items():
+            ds.update_tags(bidx=bidx, **tags)
 
 
 def fiona_property_type(ar):
