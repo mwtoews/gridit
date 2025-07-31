@@ -98,13 +98,14 @@ def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
     if masked:
         ar_uint16 = np.ma.array(ar_uint16)
     fname = tmp_path / "uint8.tif"
-    grid_basic.write_raster(ar_uint16, fname)
+    grid_basic.write_raster(ar_uint16, fname, band_attrs={"myattr": ["deep"]})
     with rasterio.open(fname) as ds:
         assert ds.crs is None
         if masked:
             assert ds.nodata == 0
         else:
             assert ds.nodata is None
+        assert ds.tags(1) == {"myattr": "deep"}
         ar = ds.read()
         assert ar.dtype == np.uint16
         assert ar.shape == (1, 20, 30)
@@ -138,6 +139,7 @@ def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
         else:
             assert ds.nodata is None
         assert ds.tags(1, ns="IMAGE_STRUCTURE")["NBITS"] == "2"
+        assert ds.tags(1) == {}
         ar = ds.read()
         assert ar.dtype == np.uint8
         assert ar.shape == (1, 20, 30)
@@ -147,10 +149,40 @@ def test_write_raster(tmp_path, grid_basic, grid_projection, masked):
     ar1d = np.ones(20 * 30)
     if masked:
         ar1d = np.ma.array(ar1d)
-    with pytest.raises(ValueError, match="array must have two-dimensions"):
+    with pytest.raises(ValueError, match="array must have 2- or 3-dimensions"):
         grid_basic.write_raster(ar1d, "out.tif")
-    with pytest.raises(ValueError, match="array must have two-dimensions"):
-        grid_basic.write_raster(ar1d.reshape((1, 20, 30)), "out.tif")
+
+
+def test_write_raster_multiband(tmp_path, grid_basic, grid_projection):
+    rasterio = pytest.importorskip("rasterio")
+
+    ar_float32 = np.arange(3 * 20 * 30, dtype=np.float32).reshape((3, 20, 30))
+    fname = tmp_path / "float32.tif"
+    grid_basic.write_raster(ar_float32, fname)
+    with rasterio.open(fname) as ds:
+        assert not ds.crs
+        assert ds.nodata is None
+        assert ds.count == 3
+        ar = ds.read()
+        assert ar.dtype == np.float32
+        assert ar.shape == (3, 20, 30)
+        np.testing.assert_array_almost_equal(ar, ar_float32)
+        assert ds.compression is None
+
+    ar_float64 = np.arange(3 * 20 * 30, dtype=np.float64).reshape((3, 20, 30))
+    fname = tmp_path / "float64.tif"
+    grid_basic.write_raster(ar_float64, fname, band_attrs={"depth": [0.0, 1.1, 2.6]})
+    with rasterio.open(fname) as ds:
+        assert not ds.crs
+        assert ds.nodata is None
+        assert ds.count == 3
+        assert ds.tags(1) == {"depth": "0.0"}
+        assert ds.tags(2) == {"depth": "1.1"}
+        assert ds.tags(3) == {"depth": "2.6"}
+        ar = ds.read()
+        assert ar.dtype == np.float64
+        assert ar.shape == (3, 20, 30)
+        np.testing.assert_array_almost_equal(ar, ar_float64)
 
 
 def test_write_vector(tmp_path, grid_basic, grid_projection):
