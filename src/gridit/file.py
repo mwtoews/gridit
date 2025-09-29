@@ -32,7 +32,6 @@ def write_raster(
 
     Parameters
     ----------
-    grid : Grid
     array : array_like
         Array to write. Arrays with 2-dimensions are written to a single band,
         whereas 3-dimensions are multiband, with the band index along the

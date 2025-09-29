@@ -42,6 +42,7 @@ class Grid:
     from gridit.classmethods import from_bbox, from_raster, from_vector
     from gridit.file import write_raster, write_vector
     from gridit.modflow import from_modflow, mask_from_modflow
+    from gridit.specfile import from_specfile, write_specfile
 
     def __init__(
         self,
