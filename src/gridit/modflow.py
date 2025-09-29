@@ -244,7 +244,8 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
 
     Parameters
     ----------
-    model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.StructuredGrid
+    model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or \
+    flopy.discretization.StructuredGrid
         Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
         (with .dis.grb suffix), classic MODFLOW NAM file,
         or certain FloPy objects.
@@ -262,7 +263,7 @@ def from_modflow(cls, model, model_name=None, projection=None, logger=None):
     ModuleNotFoundError
         Reading from str or PathLike requires flopy.
 
-    """  # noqa
+    """
     if logger is None:
         logger = get_logger(cls.__name__)
     if isinstance(model, str | PathLike):
@@ -301,7 +302,8 @@ def mask_from_modflow(self, model, model_name=None):
 
     Parameters
     ----------
-    model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or flopy.discretization.StructuredGrid
+    model : str, PathLike, flopy.modflow.Modflow, flopy.mf6.mfmodel.MFModel or \
+    flopy.discretization.StructuredGrid
         Path to a MODFLOW 6 directory, mfsim.nam, binary grid file
         (with .dis.grb suffix), classic MODFLOW NAM file,
         or certain FloPy objects.
@@ -312,7 +314,7 @@ def mask_from_modflow(self, model, model_name=None):
     -------
     np.array
 
-    """  # noqa
+    """
     mask_cache_key = (repr(model), model_name)
     if mask_cache_key in mask_cache:
         self.logger.info("using mask from cache")
