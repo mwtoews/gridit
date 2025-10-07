@@ -661,7 +661,7 @@ class GridPolyConv:
                     end_month = 12
                 elif "-" in time_window:
                     if time_window.count("-") != 1:
-                        raise ValueError("too many '-' for time_window: {time_window}")
+                        raise ValueError(f"too many '-' for time_window: {time_window}")
                     start_month, end_month = time_window.split("-")
                     start_month = month_number(start_month)
                     end_month = month_number(end_month)

@@ -86,7 +86,7 @@ def from_specfile(
     )
 
 
-def write_specfile(grid, fname: str | PathLike | TextIO | None) -> None | str:
+def write_specfile(grid, fname: str | PathLike | TextIO | None) -> str | None:
     """Write PEST's Grid Specification file
 
     Parameters

@@ -121,7 +121,7 @@ def test_grid_from_bbox_array_from_vector_attribute(tmp_path, grid_from_bbox_arg
     out_png = tmp_path / "out.png"
     out_shp = tmp_path / "out.shp"
     # fmt: off
-    stdout, stderr, returncode = run_cli(
+    stdout, _stderr, returncode = run_cli(
         grid_from_bbox_args
         + [
             "--array-from-vector", mana_shp,

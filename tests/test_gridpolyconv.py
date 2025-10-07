@@ -355,7 +355,7 @@ def test_array_from_netcdf_errors(caplog, waitaku2_gpc_rid_2):
     with pytest.raises(ValueError, match="expected 1-d myvar index dimension"):
         gpc.array_from_netcdf(waitaku2_nc, "myvar", "myvar")
     with pytest.raises(
-        IndexError, match="index 2 is out of bounds for axis|index out of range"
+        IndexError, match=r"index 2 is out of bounds for axis|index out of range"
     ):
         gpc.array_from_netcdf(waitaku2_nc, "rid", "myvar", xidx=2)
     with pytest.raises(KeyError):  # xidx should be int
