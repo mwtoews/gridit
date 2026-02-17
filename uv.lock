@@ -383,16 +383,16 @@ wheels = [
 
 [[package]]
 name = "flopy"
-version = "3.9.1"
+version = "3.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fc/e2/412f49b901803105da60668abbde68c8d12d1f6e6684874c01f0c6505761/flopy-3.9.1.tar.gz", hash = "sha256:df20e90bfcee4a3484e78244a5e27f2fd413e00f0d77fb0f2c6fffa84de0bb43", size = 1210742, upload-time = "2024-12-20T13:14:42.447Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/f1/ba4f6d79d4d68d79474b7862ec55a551b4636417b9a288373c91e91ba14f/flopy-3.10.0.tar.gz", hash = "sha256:b2b9557d69272f988f240d1f156de394ee93be4de2b88b6dc3f4d44b6a3d63cb", size = 1185427, upload-time = "2026-02-06T23:45:53.095Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/60/03e09c5d38b4ab4c809eef03fd1f99e4744dfd3740a02225dc33217b09d7/flopy-3.9.1-py3-none-any.whl", hash = "sha256:3f784c8adb847b0d3e889ebfec87ca520928b2ece72c7aaf7d046ba111890aa7", size = 1552696, upload-time = "2024-12-20T13:14:39.711Z" },
+    { url = "https://files.pythonhosted.org/packages/72/42/2a44d88ad84c963a487a0f1691d87edd143e052c71b39ec51d3969283e31/flopy-3.10.0-py3-none-any.whl", hash = "sha256:4d19f092ac715ed81911e7eadec7aeeafb994a603d1732f612e41c5fe9d6c46a", size = 1488595, upload-time = "2026-02-06T23:45:55.484Z" },
 ]
 
 [[package]]
