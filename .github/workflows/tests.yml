@@ -20,12 +20,12 @@ jobs:
         python-version: ["3.10", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
@@ -40,7 +40,7 @@ jobs:
           uv sync --all-extras
           # Avoid: Matplotlib is building the font cache; this may take a moment
           uv run python -c "import matplotlib; matplotlib.get_cachedir()"
-          uv run pytest -n2 -v --cov
+          uv run pytest -n2 -v --cov --cov-report=xml
 
       - name: Run doctest
         run: |
@@ -51,7 +51,7 @@ jobs:
         run: |
           uv pip uninstall netcdf4 xarray
           uv lock -P "affine<2.0" -P "pandas<2.0" -P "geopandas<1.0" -P "fiona<1.9" -P "shapely<2.0" -P "numpy<2.0" -P "flopy<3.5"
-          uv run pytest -v -n2 --cov --cov-append
+          uv run pytest -v -n2 --cov --cov-append --cov-report=xml
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
