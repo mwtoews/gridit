@@ -7,7 +7,8 @@ from .common import requires_pkg
 
 
 @requires_pkg("shapely")
-def test_cell_geoms():
+@pytest.mark.parametrize("point", [False, True])
+def test_cell_geoms(point):
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
     first_poly_coords = [
         (1000.0, 2000.0),
@@ -19,27 +20,35 @@ def test_cell_geoms():
     first_centroid = (1025.0, 1975.0)
     one_right_centroid = (1075.0, 1975.0)
     one_down_centroid = (1025.0, 1925.0)
+    expected_areas = [0.0] * 6 if point else [2500.0] * 6
 
     # Default
-    cg = grid.cell_geoms()
+    cg = grid.cell_geoms(point=point)
     assert isinstance(cg, np.ndarray)
     assert np.issubdtype(cg.dtype, np.object_)
     assert cg.shape == (6,)
-    assert {g.geom_type for g in cg} == {"Polygon"}
+    assert {g.geom_type for g in cg} == {"Point" if point else "Polygon"}
     assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
-    assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
-    assert cg[0].exterior.coords[:] == first_poly_coords
+    assert list(map(lambda g: g.area, cg)) == expected_areas
+    if point:
+        assert cg[0].coords[:] == [(1025.0, 1975.0)]
+    else:
+        assert cg[0].exterior.coords[:] == first_poly_coords
     centroids = list(map(lambda g: g.centroid.coords[0], cg))
     assert first_centroid == centroids[0]
     assert one_right_centroid == centroids[1]
     assert one_down_centroid == centroids[3]
 
     # Fortran-style order
-    cg = grid.cell_geoms(order="F")
+    cg = grid.cell_geoms(order="F", point=point)
     assert cg.shape == (6,)
+    assert {g.geom_type for g in cg} == {"Point" if point else "Polygon"}
     assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
-    assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
-    assert cg[0].exterior.coords[:] == first_poly_coords
+    assert list(map(lambda g: g.area, cg)) == expected_areas
+    if point:
+        assert cg[0].coords[:] == [(1025.0, 1975.0)]
+    else:
+        assert cg[0].exterior.coords[:] == first_poly_coords
     centroids = list(map(lambda g: g.centroid.coords[0], cg))
     assert first_centroid == centroids[0]
     assert one_down_centroid == centroids[1]
@@ -47,14 +56,15 @@ def test_cell_geoms():
 
     # Mask with order options
     for order in ["C", "F"]:
-        cg = grid.cell_geoms(order=order, mask=np.ones(grid.shape))
+        cg = grid.cell_geoms(order=order, mask=np.ones(grid.shape), point=point)
         assert isinstance(cg, np.ndarray)
         assert np.issubdtype(cg.dtype, np.object_)
         assert cg.shape == (0,)
-        cg = grid.cell_geoms(mask=np.zeros(grid.shape), order=order)
+        cg = grid.cell_geoms(mask=np.zeros(grid.shape), order=order, point=point)
         assert cg.shape == (6,)
+        assert {g.geom_type for g in cg} == {"Point" if point else "Polygon"}
         assert list(map(lambda g: g.is_valid, cg)) == [True] * 6
-        assert list(map(lambda g: g.area, cg)) == [2500.0] * 6
+        assert list(map(lambda g: g.area, cg)) == expected_areas
         centroids = list(map(lambda g: g.centroid.coords[0], cg))
         assert first_centroid == centroids[0]
         if order == "C":
@@ -63,8 +73,9 @@ def test_cell_geoms():
         elif order == "F":
             assert one_down_centroid == centroids[1]
             assert one_right_centroid == centroids[2]
-        cg = grid.cell_geoms(mask=np.eye(2, 3, 1), order=order)
+        cg = grid.cell_geoms(mask=np.eye(2, 3, 1), order=order, point=point)
         assert cg.shape == (4,)
+        assert {g.geom_type for g in cg} == {"Point" if point else "Polygon"}
         centroids = list(map(lambda g: g.centroid.coords[0], cg))
         assert first_centroid == centroids[0]
         assert one_right_centroid not in centroids
@@ -72,8 +83,9 @@ def test_cell_geoms():
             assert one_down_centroid == centroids[2]
         elif order == "F":
             assert one_down_centroid == centroids[1]
-        cg = grid.cell_geoms(mask=~np.eye(2, 3, -1, bool), order=order)
+        cg = grid.cell_geoms(mask=~np.eye(2, 3, -1, bool), order=order, point=point)
         assert cg.shape == (1,)
+        assert {g.geom_type for g in cg} == {"Point" if point else "Polygon"}
         centroids = list(map(lambda g: g.centroid.coords[0], cg))
         assert centroids == [one_down_centroid]
 
@@ -87,7 +99,8 @@ def test_cell_geoms():
 
 
 @requires_pkg("geopandas")
-def test_cell_geoseries():
+@pytest.mark.parametrize("point", [False, True])
+def test_cell_geoseries(point):
     import geopandas
     import pandas as pd
 
@@ -95,34 +108,38 @@ def test_cell_geoseries():
     one_right_centroid = (1075.0, 1975.0)
     one_down_centroid = (1025.0, 1925.0)
 
-    gs = grid.cell_geoseries()
+    gs = grid.cell_geoseries(point=point)
     assert isinstance(gs, geopandas.GeoSeries)
     assert gs.crs.to_epsg() == 3857
     assert gs.shape == (6,)
-    assert gs.area.min() == 2500.0
+    assert set(gs.geom_type.unique()) == {"Point" if point else "Polygon"}
+    assert gs.area.min() == 0.0 if point else 2500.0
     pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
     assert gs[1].centroid.coords[0] == one_right_centroid
 
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
-    gs = grid.cell_geoseries(order="F")
+    gs = grid.cell_geoseries(order="F", point=point)
     assert gs.crs is None
     assert gs.shape == (6,)
+    assert set(gs.geom_type.unique()) == {"Point" if point else "Polygon"}
     pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
     assert gs[1].centroid.coords[0] == one_down_centroid
 
     # Mask with order options
     for order in ["C", "F"]:
-        gs = grid.cell_geoseries(order=order, mask=np.ones(grid.shape))
+        gs = grid.cell_geoseries(order=order, mask=np.ones(grid.shape), point=point)
         assert gs.shape == (0,)
-        gs = grid.cell_geoseries(order=order, mask=np.zeros(grid.shape))
+        gs = grid.cell_geoseries(order=order, mask=np.zeros(grid.shape), point=point)
         assert gs.shape == (6,)
+        assert set(gs.geom_type.unique()) == {"Point" if point else "Polygon"}
         pd.testing.assert_index_equal(gs.index, pd.RangeIndex(6))
         if order == "C":
             assert gs[1].centroid.coords[0] == one_right_centroid
         elif order == "F":
             assert gs[1].centroid.coords[0] == one_down_centroid
-        gs = grid.cell_geoseries(order=order, mask=np.eye(2, 3, 1))
+        gs = grid.cell_geoseries(order=order, mask=np.eye(2, 3, 1), point=point)
         assert gs.shape == (4,)
+        assert set(gs.geom_type.unique()) == {"Point" if point else "Polygon"}
         centroids = list(gs.centroid.apply(lambda g: g.coords[0]))
         if order == "C":
             assert one_right_centroid not in centroids
@@ -135,17 +152,19 @@ def test_cell_geoseries():
 
 
 @requires_pkg("geopandas")
-def test_cell_geodataframe():
+@pytest.mark.parametrize("point", [False, True])
+def test_cell_geodataframe(point):
     import geopandas
     import pandas as pd
 
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0), projection="EPSG:3857")
 
-    gdf = grid.cell_geodataframe()
+    gdf = grid.cell_geodataframe(point=point)
     assert isinstance(gdf, geopandas.GeoDataFrame)
     assert gdf.crs.to_epsg() == 3857
     assert gdf.shape == (6, 3)
-    assert gdf.area.min() == 2500.0
+    assert set(gdf.geom_type.unique()) == {"Point" if point else "Polygon"}
+    assert gdf.area.min() == 0.0 if point else 2500.0
     assert list(gdf.columns) == ["geometry", "row", "col"]
     pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
     ra_row = pd.Series(np.repeat(np.arange(2), 3).astype(np.int64), name="row")
@@ -154,9 +173,10 @@ def test_cell_geodataframe():
     pd.testing.assert_series_equal(gdf["col"], ta_col)
 
     grid = Grid(50.0, (2, 3), (1000.0, 2000.0))
-    gdf = grid.cell_geodataframe(order="F")
+    gdf = grid.cell_geodataframe(order="F", point=point)
     assert gdf.crs is None
     assert gdf.shape == (6, 3)
+    assert set(gdf.geom_type.unique()) == {"Point" if point else "Polygon"}
     assert list(gdf.columns) == ["geometry", "row", "col"]
     pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
     ta_row = pd.Series(np.tile(np.arange(2), 3).astype(np.int64), name="row")
@@ -168,14 +188,15 @@ def test_cell_geodataframe():
     # Values, mask with order options
     for order in ["C", "F"]:
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.ones(grid.shape), values={"a": ar}
+            order=order, mask=np.ones(grid.shape), values={"a": ar}, point=point
         )
         assert gdf.shape == (0, 4)
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.zeros(grid.shape), values={"a": ar}
+            order=order, mask=np.zeros(grid.shape), values={"a": ar}, point=point
         )
         assert gdf.shape == (6, 4)
+        assert set(gdf.geom_type.unique()) == {"Point" if point else "Polygon"}
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         pd.testing.assert_index_equal(gdf.index, pd.RangeIndex(6))
         pd.testing.assert_series_equal(
@@ -188,9 +209,10 @@ def test_cell_geodataframe():
             pd.testing.assert_series_equal(gdf["row"], ta_row)
             pd.testing.assert_series_equal(gdf["col"], ra_col)
         gdf = grid.cell_geodataframe(
-            order=order, mask=np.eye(2, 3, 1), values={"a": ar}
+            order=order, mask=np.eye(2, 3, 1), values={"a": ar}, point=point
         )
         assert gdf.shape == (4, 4)
+        assert set(gdf.geom_type.unique()) == {"Point" if point else "Polygon"}
         assert list(gdf.columns) == ["geometry", "row", "col", "a"]
         if order == "C":
             idx = pd.Index([0, 2, 3, 4])

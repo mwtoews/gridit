@@ -3,8 +3,8 @@
 import numpy as np
 
 
-def cell_geoms(self, *, mask=None, order="C"):
-    """Returns array of shapely Polygon objects for grid cells.
+def cell_geoms(self, *, mask=None, order="C", point=False):
+    """Returns array of shapely geometry objects for grid cells.
 
     The flat array is indexed in C-order, such that rows and columns can
     be evaluated using (e.g.) :func:`numpy.unravel_index`.
@@ -17,11 +17,13 @@ def cell_geoms(self, *, mask=None, order="C"):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
+    point : bool, default False
+        If True, return Point geometries, otherwise return Polygon.
 
     Returns
     -------
     array_like
-        Shapely Polygon geometry objects.
+        Shapely geometry objects.
 
     Raises
     ------
@@ -42,7 +44,14 @@ def cell_geoms(self, *, mask=None, order="C"):
     (1, 0): POLYGON ((0 -10, 10 -10, 10 -20, 0 -20, 0 -10))
     (1, 1): POLYGON ((10 -10, 20 -10, 20 -20, 10 -20, 10 -10))
     (1, 2): POLYGON ((20 -10, 30 -10, 30 -20, 20 -20, 20 -10))
-
+    >>> for row, col, geom in zip(rows, cols, g.cell_geoms(point=True)):
+    ...     print(f"({row}, {col}): {geom}")
+    (0, 0): POINT (5 -5)
+    (0, 1): POINT (15 -5)
+    (0, 2): POINT (25 -5)
+    (1, 0): POINT (5 -15)
+    (1, 1): POINT (15 -15)
+    (1, 2): POINT (25 -15)
     """
     try:
         import shapely
@@ -61,6 +70,35 @@ def cell_geoms(self, *, mask=None, order="C"):
 
     nrow, ncol = self.shape
     xmin, ymax = self.top_left
+    if point:
+        # grid cells as grid-centre Point geometries
+        xc, yc = np.meshgrid(
+            np.arange(ncol) * self.resolution + self.resolution / 2.0 + xmin,
+            np.arange(nrow) * -self.resolution - self.resolution / 2.0 + ymax,
+        )
+        x = xc.ravel(order=order)
+        y = yc.ravel(order=order)
+        if mask is not None:
+            x = x[sel]
+            y = y[sel]
+        try:  # shapely 2+: use vectorized version
+            geoms = shapely.points(x, y)
+        except AttributeError:  # shapely 1.x
+            from shapely.geometry import Point
+
+            geoms_list = []
+            for xc, yc in zip(x, y):
+                geoms_list.append(Point(xc, yc))
+            try:
+                geoms = np.array(geoms_list)
+            except NotImplementedError:
+                # shapely<1.8
+                geoms = np.empty(len(geoms_list), dtype=object)
+                for idx, geom in enumerate(geoms_list):
+                    geoms[idx] = geom
+        return geoms
+
+    # grid cells as rectangular Polygon geometries
     xedge = np.arange(ncol + 1) * self.resolution + xmin
     yedge = np.arange(nrow + 1) * -self.resolution + ymax
     xvertices, yvertices = np.meshgrid(xedge, yedge)
@@ -138,7 +176,7 @@ def cell_geoms(self, *, mask=None, order="C"):
     return geoms
 
 
-def cell_geoseries(self, *, mask=None, order="C"):
+def cell_geoseries(self, *, mask=None, order="C", point=False):
     """Return GeoSeries from cell geometries.
 
     Parameters
@@ -149,6 +187,8 @@ def cell_geoseries(self, *, mask=None, order="C"):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
+    point : bool, default False
+        If True, return Point geometries, otherwise return Polygon.
 
     Returns
     -------
@@ -161,7 +201,7 @@ def cell_geoseries(self, *, mask=None, order="C"):
 
     See Also
     --------
-    Grid.cell_geoms : Return array of shapely Polygons for grid cells.
+    Grid.cell_geoms : Return array of shapely geometries for grid cells.
     Grid.cell_geodataframe : Return GeoDataFrame from cell geometries.
 
     Examples
@@ -175,7 +215,7 @@ def cell_geoseries(self, *, mask=None, order="C"):
         import geopandas
     except ModuleNotFoundError:
         raise ModuleNotFoundError("cell_geoseries() needs geopandas to be installed")
-    geoms = self.cell_geoms(mask=mask, order=order)
+    geoms = self.cell_geoms(mask=mask, order=order, point=point)
     gs = geopandas.GeoSeries(geoms, crs=self.projection)
     if mask is not None:
         if not np.issubdtype(mask.dtype, np.bool_):
@@ -188,7 +228,7 @@ def cell_geoseries(self, *, mask=None, order="C"):
     return gs
 
 
-def cell_geodataframe(self, *, values=None, mask=None, order="C"):
+def cell_geodataframe(self, *, values=None, mask=None, order="C", point=False):
     """Return GeoDataFrame from cell geometries, rows and columns.
 
     Parameters
@@ -202,6 +242,8 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
+    point : bool, default False
+        If True, return Point geometries, otherwise return Polygon.
 
     Returns
     -------
@@ -214,7 +256,7 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
 
     See Also
     --------
-    Grid.cell_geoms : Return array of shapely Polygons for grid cells.
+    Grid.cell_geoms : Return array of shapely geometries for grid cells.
     Grid.cell_geoseries : Return pandas.GeoSeries from cell geometries.
 
     Examples
@@ -236,7 +278,7 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C"):
         import geopandas
     except ModuleNotFoundError:
         raise ModuleNotFoundError("cell_geodataframe() needs geopandas to be installed")
-    gs = self.cell_geoseries(mask=mask, order=order)
+    gs = self.cell_geoseries(mask=mask, order=order, point=point)
     gdf = geopandas.GeoDataFrame(geometry=gs, crs=self.projection)
     if mask is not None:
         if not np.issubdtype(mask.dtype, np.bool_):
