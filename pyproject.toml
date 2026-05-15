@@ -25,11 +25,13 @@ dependencies = [
 
 [project.optional-dependencies]
 optional = [
+    "affine",
     "fiona",
     "flopy",
+    "geopandas",
     "matplotlib",
     "netCDF4",
-    "geopandas",
+    "pandas",
     "rasterio",
     "scipy",
     "shapely",
