@@ -33,14 +33,14 @@ jobs:
       - name: Run tests with required packages
         run: |
           uv sync --dev
-          uv run pytest -v --cov --cov-report=xml
+          uv run pytest -v
 
       - name: Run tests with optional packages
         run: |
           uv sync --extra optional --upgrade
           # Avoid: Matplotlib is building the font cache; this may take a moment
           uv run python -c "import matplotlib; matplotlib.get_cachedir()"
-          uv run pytest -n2 -v --cov-append --cov-report=xml
+          uv run pytest -n2 -v --cov --cov-report=xml
 
       - name: Run doctest
         run: |
