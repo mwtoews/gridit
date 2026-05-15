@@ -33,14 +33,14 @@ jobs:
       - name: Run tests with required packages
         run: |
           uv sync --dev
-          uv run pytest -v
+          uv run pytest -v --cov --cov-report=xml
 
       - name: Run tests with optional packages
         run: |
           uv sync --extra optional --upgrade
           # Avoid: Matplotlib is building the font cache; this may take a moment
           uv run python -c "import matplotlib; matplotlib.get_cachedir()"
-          uv run pytest -n2 -v --cov --cov-report=xml
+          uv run pytest -n2 -v --cov-append --cov-report=xml
 
       - name: Run doctest
         run: |
@@ -49,8 +49,8 @@ jobs:
       - name: Run tests with older packages
         if: matrix.python-version == '3.10'
         run: |
-          uv pip uninstall netcdf4 xarray
-          uv pip install "affine<2.0" "pandas<2.0" "geopandas<1.0" "fiona<1.9" "shapely<2.1" "numpy<2.0" "flopy<3.5"
+          uv pip uninstall netcdf4 xarray pyogrio cftime snuggs
+          uv lock -P "numpy<2.0" -P "pytest<7.0" -P "affine<2.0" -P "fiona<1.9" -P "flopy<3.5" -P "geopandas<1.0" -P "matplotlib<3.6" -P "pandas<2.0" -P "rasterio<1.4" -P "scipy<1.10" -P "shapely<2.1"
           uv run pytest -v -n2 --cov --cov-append --cov-report=xml
 
       - name: Upload coverage reports to Codecov
