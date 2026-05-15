@@ -24,17 +24,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["gridit[test,optional]", "pre-commit", "ruff"]
 optional = [
+    "affine",
     "fiona",
     "flopy",
+    "geopandas",
     "matplotlib",
     "netCDF4",
-    "geopandas",
+    "pandas",
     "rasterio",
     "scipy",
     "shapely",
     "xarray",
+]
+
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"},
+]
+lint = [
+  "ruff",
+  "pre-commit",
 ]
 test = [
     "pytest",
