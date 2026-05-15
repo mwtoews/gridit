@@ -677,7 +677,7 @@ class GridVectorData:
             else:
                 raise ValueError(f"attribute {self.attribute} is neither float or int")
             dtype = get_minimum_dtype(np.append(vals, nodata))
-            if dtype == "float32":
+            if dtype in {"float16", "float32"}:
                 dtype = "float64"
             rasterize_fill = nodata
 
