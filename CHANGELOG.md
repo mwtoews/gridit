@@ -88,7 +88,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Initial version.
 
-[Unreleased]: https://github.com/mwtoews/gridit/compare/0.8...HEAD
+[Unreleased]: https://github.com/mwtoews/gridit/compare/0.9...HEAD
+[0.8]: https://github.com/mwtoews/gridit/compare/0.8...0.9
 [0.8]: https://github.com/mwtoews/gridit/compare/0.7...0.8
 [0.7]: https://github.com/mwtoews/gridit/compare/0.6...0.7
 [0.6]: https://github.com/mwtoews/gridit/compare/0.5...0.6
