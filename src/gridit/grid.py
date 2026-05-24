@@ -2,6 +2,8 @@
 
 from decimal import Decimal
 
+import numpy as np
+
 __all__ = ["Grid"]
 mask_cache = {}
 
@@ -131,6 +133,56 @@ class Grid:
             (xmax, ymin),
             (xmax, ymax),
         ]
+
+    def meshgrid(self, *, corner: bool = False, **kwargs):
+        """Return two 2-D arrays of grid coordinates.
+
+        Parameters
+        ----------
+        corner : bool, default False
+            If True, coordinates to the grid corners are returned, with 1 extra
+            size to each shape dimension. Default False will return
+            coordinates to cell centres, with the original shape of the grid.
+        kwargs : dict, optional
+            Keyword arguments passed to :func:`numpy.meshgrid`.
+
+        Returns
+        -------
+        tuple
+            Coordinates for X and Y dimensions.
+
+        Examples
+        --------
+        >>> from gridit import Grid
+        >>> grid = Grid(10.0, (2, 3), (100.0, 200.0))
+        >>> X, Y = grid.meshgrid()
+        >>> X
+        array([[105., 115., 125.],
+               [105., 115., 125.]])
+        >>> Y
+        array([[195., 195., 195.],
+               [185., 185., 185.]])
+        >>> X, Y = grid.meshgrid(corner=True)
+        >>> X
+        array([[100., 110., 120., 130.],
+               [100., 110., 120., 130.],
+               [100., 110., 120., 130.]])
+        >>> Y
+        array([[200., 200., 200., 200.],
+               [190., 190., 190., 190.],
+               [180., 180., 180., 180.]])
+
+        """
+        nrow, ncol = self.shape
+        xmin, ymax = self.top_left
+        resolution = self.resolution
+        if corner:
+            X = np.arange(ncol + 1) * resolution + xmin
+            Y = np.arange(nrow + 1) * -resolution + ymax
+        else:
+            X = np.arange(ncol) * resolution + resolution / 2.0 + xmin
+            Y = np.arange(nrow) * -resolution - resolution / 2.0 + ymax
+        return np.meshgrid(X, Y, **kwargs)
 
     @property
     def transform(self):
