@@ -80,6 +80,23 @@ def test_grid_corner_coords(grid_basic):
     ]
 
 
+def test_grid_meshgrid(grid_basic):
+    X, Y = grid_basic.meshgrid()
+    assert X.shape == (20, 30)
+    assert Y.shape == (20, 30)
+    assert X[0, 0] == X[-1, 0] == 1005.0
+    assert X[0, -1] == X[-1, -1] == 1295.0
+    assert Y[0, 0] == Y[0, -1] == 1995.0
+    assert Y[-1, 0] == Y[-1, -1] == 1805.0
+    X, Y = grid_basic.meshgrid(corner=True)
+    assert X.shape == (21, 31)
+    assert Y.shape == (21, 31)
+    assert X[0, 0] == X[-1, 0] == 1000.0
+    assert X[0, -1] == X[-1, -1] == 1300.0
+    assert Y[0, 0] == Y[0, -1] == 2000.0
+    assert Y[-1, 0] == Y[-1, -1] == 1800.0
+
+
 @requires_pkg("affine")
 def test_grid_transform(grid_basic):
     from affine import Affine

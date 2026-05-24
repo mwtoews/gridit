@@ -68,14 +68,9 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
         if sel.all():
             mask = None
 
-    nrow, ncol = self.shape
-    xmin, ymax = self.top_left
     if point:
         # grid cells as grid-centre Point geometries
-        xc, yc = np.meshgrid(
-            np.arange(ncol) * self.resolution + self.resolution / 2.0 + xmin,
-            np.arange(nrow) * -self.resolution - self.resolution / 2.0 + ymax,
-        )
+        xc, yc = self.meshgrid(corner=False)
         x = xc.ravel(order=order)
         y = yc.ravel(order=order)
         if mask is not None:
@@ -99,11 +94,10 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
         return geoms
 
     # grid cells as rectangular Polygon geometries
-    xedge = np.arange(ncol + 1) * self.resolution + xmin
-    yedge = np.arange(nrow + 1) * -self.resolution + ymax
-    xvertices, yvertices = np.meshgrid(xedge, yedge)
+    xvertices, yvertices = self.meshgrid(corner=True)
 
     # arrays of coordinates for rectangle cells
+    nrow, ncol = self.shape
     Ia, Ja = np.ogrid[0:nrow, 0:ncol]
     xverts = np.stack(
         [
