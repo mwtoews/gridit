@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 ### Changed
 ### Fixed
 
+## [0.9] - 2026-05-25
+### Added
+- Add PEST Grid Specfile methods (#64).
+- Add point to cell geometry functions (#77).
+- Add `Grid.meshgrid()` helper function (#92).
+### Changed
+- Allow `Grid.write_raster` to write multiband rasters with band attrs (#63).
+
 ## [0.8] - 2025-06-23
 ### Added
 - Add `Grid.array_from_geom()` method for Shapely objects (#60).
