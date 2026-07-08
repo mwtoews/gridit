@@ -1,6 +1,7 @@
 """Grid.array_from_* and mask_from_* methods."""
 
 import inspect
+from os import PathLike
 
 import numpy as np
 
@@ -79,7 +80,7 @@ def array_from_array(self, grid, array, resampling=None):
         else:
             raise ValueError()
     elif isinstance(resampling, str):
-        resampling = rasterio.enums.Resampling[resampling]
+        resampling = Resampling[resampling]
     self.logger.info("using %s resampling method", resampling.name)
     if not rasterio.dtypes.check_dtype(array.dtype):
         dtype = rasterio.dtypes.get_minimum_dtype(array)
@@ -129,12 +130,12 @@ def array_from_array(self, grid, array, resampling=None):
     return dst_array
 
 
-def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
+def array_from_raster(self, fname: str | PathLike, bidx: int = 1, resampling=None):
     """Return array from a raster source aligned to grid info.
 
     Parameters
     ----------
-    fname : str
+    fname : str or PathLike
         Source raster data to regrid.
     bidx : int, optional
         Band index, default is 1 (the first).
@@ -220,7 +221,7 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
             else:
                 raise ValueError()
         elif isinstance(resampling, str):
-            resampling = rasterio.enums.Resampling[resampling]
+            resampling = Resampling[resampling]
         self.logger.info("using %s resampling method", resampling.name)
 
         reproject_kwds = dict(
@@ -250,12 +251,12 @@ def array_from_raster(self, fname: str, bidx: int = 1, resampling=None):
     return ar
 
 
-def mask_from_raster(self, fname: str, bidx: int = 1):
+def mask_from_raster(self, fname: str | PathLike, bidx: int = 1):
     """Return a mask array from a raster source aligned to grid info.
 
     Parameters
     ----------
-    fname : str
+    fname : str or PathLike
         Source raster data to extract mask.
     bidx : int, optional
         Band index, default is 1 (the first).
@@ -359,7 +360,7 @@ def array_from_geopandas(
 
 def array_from_vector(
     self,
-    fname: str,
+    fname: str | PathLike,
     *,
     layer=None,
     attribute=None,

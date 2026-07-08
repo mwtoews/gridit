@@ -7,6 +7,7 @@ import os
 import pickle
 import re
 from collections import Counter
+from os import PathLike
 from pathlib import Path
 
 import numpy as np
@@ -170,7 +171,7 @@ class GridPolyConv:
     def from_grid_vector(
         cls,
         grid,
-        fname: str,
+        fname: str | PathLike,
         attribute: str,
         *,
         layer=None,
@@ -185,7 +186,7 @@ class GridPolyConv:
         ----------
         grid : Grid
             A Grid instance.
-        fname : str
+        fname : str or PathLike
             Path to vector file with polygons.
         attribute : str
             Name of vector attribute to be used for poly_idx.
@@ -474,12 +475,12 @@ class GridPolyConv:
         ).hexdigest()[:8]
         return prefix + pt1 + pt2 + suffix
 
-    def to_pickle(self, path, protocol=4):
+    def to_pickle(self, path: str | PathLike, protocol=4):
         """Pickle (serialize) object to file.
 
         Parameters
         ----------
-        path : str
+        path : str or PathLike
             File path where the pickled object will be stored.
         protocol : int, default 4
             Default 4 was introduced for Python 3.4.
@@ -489,7 +490,7 @@ class GridPolyConv:
             pickle.dump(self, f, protocol=protocol)
 
     @staticmethod
-    def from_pickle(fname: str):
+    def from_pickle(fname: str | PathLike):
         """Unpickle object from a file."""
         with open(fname, "rb") as f:
             return pickle.load(f)
@@ -578,7 +579,7 @@ class GridPolyConv:
 
     def array_from_netcdf(
         self,
-        fname: str,
+        fname: str | PathLike,
         idx_name: str,
         var_name: str,
         *,
@@ -591,7 +592,7 @@ class GridPolyConv:
 
         Parameters
         ----------
-        fname : str or xarray.Dataset
+        fname : str, PathLike, or xarray.Dataset
             Source netCDF file. This can also be an xarray Dataset object.
         idx_name : str
             Variable name with the polygon index.
