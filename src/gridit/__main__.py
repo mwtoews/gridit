@@ -10,6 +10,7 @@ import numpy as np
 try:
     import rasterio
     from rasterio._err import CPLE_BaseError as RasterioCPLE_BaseError
+    from rasterio.enums import Resampling
     from rasterio.errors import RasterioError
 except ModuleNotFoundError:
     rasterio = None
@@ -108,7 +109,7 @@ Examples:
             metavar="SMP",
             help="Raster resampling method, default None to "
             "automatically choose. Use one of: "
-            + ", ".join(rasterio.enums.Resampling.__members__.keys()),
+            + ", ".join(Resampling.__members__.keys()),
         )
     else:
         parser.add_argument_group("Array from raster", "rasterio not installed")

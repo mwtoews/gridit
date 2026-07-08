@@ -3,6 +3,7 @@
 from decimal import Decimal
 from itertools import product
 from math import ceil, floor
+from os import PathLike
 
 from gridit.logger import get_logger
 
@@ -178,7 +179,7 @@ def from_bbox(
 
     Parameters
     ----------
-    fname : str
+    fname : str or PathLike
         Input file, such as a shapefile.
     minx, miny, maxx, maxy : float or Decimal
         Extents of a bounding box.
@@ -236,7 +237,7 @@ def from_bbox(
 @classmethod
 def from_raster(
     cls,
-    fname: str,
+    fname: str | PathLike,
     resolution: float | Decimal | None = None,
     *,
     buffer: float | Decimal | tuple = Decimal("0"),
@@ -247,7 +248,7 @@ def from_raster(
 
     Parameters
     ----------
-    fname : str
+    fname : str or PathLike
         Input file, such as a shapefile.
     resolution : float or Decimal, optional
         An optional grid resolution. If not specified, the grid will have the
@@ -314,7 +315,7 @@ def from_raster(
 @classmethod
 def from_vector(
     cls,
-    fname: str,
+    fname: str | PathLike,
     resolution: float | Decimal,
     *,
     filter: dict | str | None = None,
@@ -329,7 +330,7 @@ def from_vector(
 
     Parameters
     ----------
-    fname : str
+    fname : str or PathLike
         Input file, such as a shapefile.
     resolution : float or Decimal
         A grid resolution, e.g. 250.0 for 250m x 250m
