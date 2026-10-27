@@ -1,9 +1,11 @@
 """Cell geometry methods."""
 
+from warnings import warn
+
 import numpy as np
 
 
-def cell_geoms(self, *, mask=None, order="C", point=False):
+def cell_geoms(self, *, mask=None, order="C", style="square", **kwargs):
     """Returns array of shapely geometry objects for grid cells.
 
     The flat array is indexed in C-order, such that rows and columns can
@@ -17,8 +19,12 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
-    point : bool, default False
-        If True, return Point geometries, otherwise return Polygon.
+    style : {"square", "mid", "row", "col"}, optional
+        Geometry style. Default "square" will return square polygons,
+        "mid" will return centre points, "row" will return grid lines along
+        rows, and "col" will return grid lines along columns.
+    **kwargs
+        Keyword `point` is deprecated, use (e.g.) `style="mid"` instead.
 
     Returns
     -------
@@ -44,7 +50,7 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
     (1, 0): POLYGON ((0 -10, 10 -10, 10 -20, 0 -20, 0 -10))
     (1, 1): POLYGON ((10 -10, 20 -10, 20 -20, 10 -20, 10 -10))
     (1, 2): POLYGON ((20 -10, 30 -10, 30 -20, 20 -20, 20 -10))
-    >>> for row, col, geom in zip(rows, cols, g.cell_geoms(point=True)):
+    >>> for row, col, geom in zip(rows, cols, g.cell_geoms(style="mid")):
     ...     print(f"({row}, {col}): {geom}")
     (0, 0): POINT (5 -5)
     (0, 1): POINT (15 -5)
@@ -57,6 +63,7 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
         import shapely
     except ModuleNotFoundError:
         raise ModuleNotFoundError("cell_geoms() needs shapely to be installed")
+
     if mask is not None:
         if getattr(mask, "shape", None) != self.shape:
             raise ValueError("mask must be an array the same shape as the grid")
@@ -68,9 +75,27 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
         if sel.all():
             mask = None
 
-    if point:
-        # grid cells as grid-centre Point geometries
+    if "point" in kwargs:
+        point = kwargs.pop("point")
+        msg = "keyword `point` is deprecated"
+        if point is True:
+            msg += '; use `style="mid"` instead'
+            style = "mid"
+        elif point is False:
+            msg += f'; using `style="{style}"` instead'
+        warn(msg, DeprecationWarning, stacklevel=2)
+    if kwargs:
+        raise TypeError(f"unhandled keyword arguments: {kwargs}")
+
+    valid_style = {"square", "mid", "row", "col"}
+    if style not in valid_style:
+        raise ValueError(f"style must be one of {valid_style}; found {style=}")
+
+    if style in {"mid", "row", "col"}:
         xc, yc = self.meshgrid(corner=False)
+
+    if style == "mid":
+        # grid cells as grid-centre Point geometries
         x = xc.ravel(order=order)
         y = yc.ravel(order=order)
         if mask is not None:
@@ -93,55 +118,69 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
                     geoms[idx] = geom
         return geoms
 
-    # grid cells as rectangular Polygon geometries
-    xvertices, yvertices = self.meshgrid(corner=True)
-
-    # arrays of coordinates for rectangle cells
+    # Other geometry styles
     nrow, ncol = self.shape
     Ia, Ja = np.ogrid[0:nrow, 0:ncol]
-    xverts = np.stack(
-        [
-            xvertices[Ia, Ja],
-            xvertices[Ia, Ja + 1],
-            xvertices[Ia + 1, Ja + 1],
-            xvertices[Ia + 1, Ja],
+    xv, yv = self.meshgrid(corner=True)
+
+    # Create arrays of coordinates for cells
+    if style == "square":
+        # grid cells as rectangular Polygon geometries, 4 coords
+        ncoords = 4
+        xcoords = [
+            xv[Ia, Ja],
+            xv[Ia, Ja + 1],
+            xv[Ia + 1, Ja + 1],
+            xv[Ia + 1, Ja],
         ]
-    )
-    yverts = np.stack(
-        [
-            yvertices[Ia, Ja],
-            yvertices[Ia, Ja + 1],
-            yvertices[Ia + 1, Ja + 1],
-            yvertices[Ia + 1, Ja],
+        ycoords = [
+            yv[Ia, Ja],
+            yv[Ia, Ja + 1],
+            yv[Ia + 1, Ja + 1],
+            yv[Ia + 1, Ja],
         ]
-    )
+    elif style == "row":
+        # grid cells as LineString geometries along rows, 2 coords
+        ncoords = 2
+        xcoords = [xv[Ia, Ja], xv[Ia, Ja + 1]]
+        ycoords = [yc[Ia, Ja], yc[Ia, Ja]]
+    elif style == "col":
+        # grid cells as LineString geometries along columns, 2 coords
+        ncoords = 2
+        xcoords = [xc[Ia, Ja], xc[Ia, Ja]]
+        ycoords = [yv[Ia, Ja], yv[Ia + 1, Ja]]
+
     if order == "C":
-        xverts = xverts.transpose((1, 2, 0))
-        yverts = yverts.transpose((1, 2, 0))
+        xcoords = np.stack(xcoords).transpose((1, 2, 0))
+        ycoords = np.stack(ycoords).transpose((1, 2, 0))
     elif order == "F":
-        pass
+        xcoords = np.stack(xcoords)
+        ycoords = np.stack(ycoords)
     else:
         raise ValueError('order must be "C" or "F"')
 
     try:  # shapely 2+: use vectorized version
+        x = xcoords.ravel(order=order)
+        y = ycoords.ravel(order=order)
         if mask is None:
-            rings = shapely.linearrings(
-                xverts.ravel(order=order),
-                y=yverts.ravel(order=order),
-                indices=np.repeat(np.arange(nrow * ncol), 4),
-            )
+            indices = np.repeat(np.arange(nrow * ncol), ncoords)
         else:
-            selrep = np.repeat(sel, 4)
-            rings = shapely.linearrings(
-                xverts.ravel(order=order)[selrep],
-                y=yverts.ravel(order=order)[selrep],
-                indices=np.repeat(np.arange(sel.sum()), 4),
-            )
-        geoms = shapely.polygons(rings)
+            selrep = np.repeat(sel, ncoords)
+            x = x[selrep]
+            y = y[selrep]
+            indices = np.repeat(np.arange(sel.sum()), ncoords)
+        if style == "square":
+            rings = shapely.linearrings(x, y=y, indices=indices)
+            geoms = shapely.polygons(rings)
+        else:  # linestring geometries for row or column
+            geoms = shapely.linestrings(x, y=y, indices=indices)
     except AttributeError:  # shapely 1.x
         from itertools import product
 
-        from shapely.geometry import Polygon
+        if style == "square":
+            from shapely.geometry import Polygon as GeomType
+        else:
+            from shapely.geometry import LineString as GeomType
 
         geoms_list = []
         if order == "C":
@@ -150,8 +189,8 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
         elif order == "F":
             swap = True
             prod_iter = product(range(ncol), range(nrow))
-            xverts = xverts.transpose((1, 2, 0))
-            yverts = yverts.transpose((1, 2, 0))
+            xcoords = xcoords.transpose((1, 2, 0))
+            ycoords = ycoords.transpose((1, 2, 0))
         for idx, ij in enumerate(prod_iter):
             if mask is not None and not sel[idx]:
                 continue
@@ -159,7 +198,7 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
                 j, i = ij
             else:
                 i, j = ij
-            geoms_list.append(Polygon(zip(xverts[i, j], yverts[i, j])))
+            geoms_list.append(GeomType(zip(xcoords[i, j], ycoords[i, j])))
         try:
             geoms = np.array(geoms_list)
         except NotImplementedError:
@@ -170,7 +209,7 @@ def cell_geoms(self, *, mask=None, order="C", point=False):
     return geoms
 
 
-def cell_geoseries(self, *, mask=None, order="C", point=False):
+def cell_geoseries(self, *, mask=None, order="C", style="square", **kwargs):
     """Return GeoSeries from cell geometries.
 
     Parameters
@@ -181,8 +220,12 @@ def cell_geoseries(self, *, mask=None, order="C", point=False):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
-    point : bool, default False
-        If True, return Point geometries, otherwise return Polygon.
+    style : {"square", "mid", "row", "col"}, optional
+        Geometry style. Default "square" will return rectangular polygons,
+        "mid" will return centre points, "row" will return grid lines along
+        rows, and "col" will return grid lines along columns.
+    **kwargs
+        Keyword `point` is deprecated, use (e.g.) `style="mid"` instead.
 
     Returns
     -------
@@ -209,7 +252,20 @@ def cell_geoseries(self, *, mask=None, order="C", point=False):
         import geopandas
     except ModuleNotFoundError:
         raise ModuleNotFoundError("cell_geoseries() needs geopandas to be installed")
-    geoms = self.cell_geoms(mask=mask, order=order, point=point)
+
+    if "point" in kwargs:
+        point = kwargs.pop("point")
+        msg = "keyword `point` is deprecated"
+        if point is True:
+            msg += '; use `style="mid"` instead'
+            style = "mid"
+        elif point is False:
+            msg += f'; using `style="{style}"` instead'
+        warn(msg, DeprecationWarning, stacklevel=2)
+    if kwargs:
+        raise TypeError(f"unhandled keyword arguments: {kwargs}")
+
+    geoms = self.cell_geoms(mask=mask, order=order, style=style)
     gs = geopandas.GeoSeries(geoms, crs=self.projection)
     if mask is not None:
         if not np.issubdtype(mask.dtype, np.bool_):
@@ -222,7 +278,9 @@ def cell_geoseries(self, *, mask=None, order="C", point=False):
     return gs
 
 
-def cell_geodataframe(self, *, values=None, mask=None, order="C", point=False):
+def cell_geodataframe(
+    self, *, values=None, mask=None, order="C", style="square", **kwargs
+):
     """Return GeoDataFrame from cell geometries, rows and columns.
 
     Parameters
@@ -236,8 +294,12 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C", point=False):
     order : {"C", "F"}, optional
         C-style indexes are row-major, and Fortran-style are column-major.
         See :meth:`numpy.ravel` for more information.
-    point : bool, default False
-        If True, return Point geometries, otherwise return Polygon.
+    style : {"square", "mid", "row", "col"}, optional
+        Geometry style. Default "square" will return rectangular polygons,
+        "mid" will return centre points, "row" will return grid lines along
+        rows, and "col" will return grid lines along columns.
+    **kwargs
+        Keyword `point` is deprecated, use (e.g.) `style="mid"` instead.
 
     Returns
     -------
@@ -266,13 +328,38 @@ def cell_geodataframe(self, *, values=None, mask=None, order="C", point=False):
     3    1    0  1.0
     4    1    1  1.0
     5    1    2  1.0
+    >>> rows = grid.cell_geodataframe(style="row").dissolve("row").line_merge()
+    >>> rows.simplify(0)
+    row
+    0      LINESTRING (0 -5, 30 -5)
+    1    LINESTRING (0 -15, 30 -15)
+    dtype: geometry
+    >>> cols = grid.cell_geodataframe(style="col").dissolve("col").line_merge()
+    >>> cols.simplify(0)
+    col
+    0      LINESTRING (5 0, 5 -20)
+    1    LINESTRING (15 0, 15 -20)
+    2    LINESTRING (25 0, 25 -20)
+    dtype: geometry
 
     """
     try:
         import geopandas
     except ModuleNotFoundError:
         raise ModuleNotFoundError("cell_geodataframe() needs geopandas to be installed")
-    gs = self.cell_geoseries(mask=mask, order=order, point=point)
+    if "point" in kwargs:
+        point = kwargs.pop("point")
+        msg = "keyword `point` is deprecated"
+        if point is True:
+            msg += '; use `style="mid"` instead'
+            style = "mid"
+        elif point is False:
+            msg += f'; using `style="{style}"` instead'
+        warn(msg, DeprecationWarning, stacklevel=2)
+    if kwargs:
+        raise TypeError(f"unhandled keyword arguments: {kwargs}")
+
+    gs = self.cell_geoseries(mask=mask, order=order, style=style)
     gdf = geopandas.GeoDataFrame(geometry=gs, crs=self.projection)
     if mask is not None:
         if not np.issubdtype(mask.dtype, np.bool_):
