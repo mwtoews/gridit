@@ -55,7 +55,7 @@ class ModelGrid:
             nrow = self.delc.size
             ncol = self.delr.size
             nlay = self.domain.size // (nrow * ncol)
-            self.domain.shape = (nlay, nrow, ncol)
+            self.domain = self.domain.reshape((nlay, nrow, ncol))
         elif self.domain.ndim not in (2, 3):
             raise ValueError("model domain is not a 2- or 3-d array")
 
