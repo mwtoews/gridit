@@ -200,3 +200,41 @@ class Grid:
         e = -a
         b = d = 0.0
         return Affine(a, b, c, d, e, f)
+
+    def subgrids(self, nrow: int, ncol: int):
+        """Subdivide grid into smaller grids arranged in a 2D array.
+
+        Parameters
+        ----------
+        nrow, ncol : int
+            Number of rows and columns to subdivide the grid into.
+
+        Returns
+        -------
+        array_like
+            2D array of Grid objects.
+
+        """
+        parent_nrow, parent_ncol = self.shape
+        if nrow > parent_nrow:
+            raise ValueError(f"nrow must be <= {parent_nrow}")
+        if ncol > parent_ncol:
+            raise ValueError(f"ncol must be <= {parent_ncol}")
+        nrows = np.diff(np.ceil(np.arange(nrow + 1) * parent_nrow / nrow).astype(int))
+        ncols = np.diff(np.ceil(np.arange(ncol + 1) * parent_ncol / ncol).astype(int))
+        assert nrows.sum() == parent_nrow
+        assert ncols.sum() == parent_ncol
+        xmin, ymax = self.top_left
+        top_left_xs = xmin + np.insert(np.cumsum(ncols[:-1]), 0, 0) * self.resolution
+        top_left_ys = ymax - np.insert(np.cumsum(nrows[:-1]), 0, 0) * self.resolution
+        subgrids = np.empty((nrow, ncol), dtype=object)
+        for row in range(nrow):
+            for col in range(ncol):
+                subgrids[row, col] = Grid(
+                    resolution=self.resolution,
+                    shape=(nrows[row], ncols[col]),
+                    top_left=(top_left_xs[col], top_left_ys[row]),
+                    projection=self.projection,
+                    logger=self.logger,
+                )
+        return subgrids
