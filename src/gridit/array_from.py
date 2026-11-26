@@ -689,7 +689,10 @@ class GridVectorData:
             from rasterio.crs import CRS
             from rasterio.warp import reproject
 
-            fine_transform = self.transform * Affine.scale(1.0 / refine)
+            try:
+                fine_transform = self.transform @ Affine.scale(1.0 / refine)
+            except TypeError:
+                fine_transform = self.transform * Affine.scale(1.0 / refine)
             fine_shape = tuple(n * refine for n in self.shape)
             self.logger.info(
                 "rasterizing features to %s fine array with fill=%s and all_touched=%s",

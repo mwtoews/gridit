@@ -314,7 +314,10 @@ class GridPolyConv:
         )
         if use_refine:
             fine_shape = tuple(n * refine for n in grid.shape)
-            fine_transform = grid_transform * Affine.scale(1.0 / refine)
+            try:
+                fine_transform = grid_transform @ Affine.scale(1.0 / refine)
+            except TypeError:
+                fine_transform = grid_transform * Affine.scale(1.0 / refine)
             idx_ar = features.rasterize(
                 geoms_idxs,
                 fine_shape,
