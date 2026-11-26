@@ -1,5 +1,6 @@
 import pickle
 
+import numpy as np
 import pytest
 
 from gridit import Grid
@@ -131,3 +132,47 @@ def test_grid_transform(grid_basic):
 def test_pickle(grid, expected_bytes):
     assert pickle.loads(expected_bytes) == grid, "failed loading previous serialization"
     assert pickle.loads(pickle.dumps(grid)) == grid, "failed round-trip"
+
+
+def test_subgrids():
+    # With projection
+    grid = Grid(2, (3, 4), (0, 6), projection="EPSG:2193")
+    subgrids = grid.subgrids(3, 2)
+    assert subgrids.shape == (3, 2)
+    for (row, col), sg in np.ndenumerate(subgrids):
+        assert isinstance(sg, Grid)
+        assert sg.resolution == 2
+        assert sg.projection == "EPSG:2193"
+        assert sg.shape == (1, 2)
+
+    # Without projection
+    grid = Grid(resolution=2, shape=(11, 6), top_left=(0, 24))
+    # Same shape
+    subgrids = grid.subgrids(11, 6)
+    assert subgrids.shape == (11, 6)
+    for (row, col), sg in np.ndenumerate(subgrids):
+        assert isinstance(sg, Grid)
+        assert sg.resolution == 2
+        assert sg.projection is None
+        assert sg.shape == (1, 1)
+
+    # Irregular shapes
+    shape = 5, 4
+    subgrids = grid.subgrids(*shape)
+    assert subgrids.shape == shape
+    rows = np.zeros(shape, dtype=int)
+    cols = np.zeros(shape, dtype=int)
+    for (row, col), sg in np.ndenumerate(subgrids):
+        assert isinstance(sg, Grid)
+        assert sg.resolution == 2
+        assert sg.projection is None
+        rows[row, col] = sg.shape[0]
+        cols[row, col] = sg.shape[1]
+    np.testing.assert_array_equal(
+        rows,
+        np.repeat([3, 2, 2, 2, 2], 4).reshape(shape),
+    )
+    np.testing.assert_array_equal(
+        cols,
+        np.tile([2, 1, 2, 1], 5).reshape(shape),
+    )
